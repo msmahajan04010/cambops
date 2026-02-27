@@ -1,0 +1,27 @@
+export const CHAPTER_STATUS = {
+  ASSIGNED: 1,
+  ACCEPTED: 2,
+  COMPLETED: 3,
+  UNDER_QC: 4,
+  QC_APPROVED: 5,
+  DELIVERED: 6,
+  DECLINED: 8
+};
+
+export const BOOK_STATUS = {
+  IN_PROGRESS: 1,
+  DELIVERED: 2,
+  PAYMENT_RECEIVED: 3
+};
+
+export const USER_STATUS = {
+  ACTIVE: 1,
+  INACTIVE: 0
+};
+
+export const TRANSACTION_STATUS = {
+  GENERATED: 1,
+  SENT: 2,
+  PAID: 3,
+  CANCELLED: 4
+};
