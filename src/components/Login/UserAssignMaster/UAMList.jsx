@@ -26,50 +26,35 @@ export default function UserAssignBookList() {
   };
 
   const calculateProgress = (book) => {
-    const totalChapters = book.chapters?.length || 0;
-    if (totalChapters === 0) return 0;
+  const totalChapters = book.chapters?.length || 0;
+  if (totalChapters === 0) return 0;
 
-    const bookAssignments = assignments.filter(a => a.bookId === book.id);
+  const bookAssignments = assignments.filter(
+    a => a.bookId === book.id
+  );
 
-    let completedChapters = 0;
+  let completedChapters = 0;
 
-    book.chapters.forEach(ch => {
-      const chapterAssignments = bookAssignments.filter(
-        a => a.chapterNumber === ch.chapterNumber
-      );
+  book.chapters.forEach(ch => {
+    const assignment = bookAssignments.find(
+      a => a.chapterNumber === ch.chapterNumber
+    );
 
-      // If any assignment has typeId 5 and delivered
-      const hasCombinedCompleted = chapterAssignments.some(
-        a =>
-          a.typeId === 5 &&
-          a.chapterstatus >= CHAPTER_STATUS.QC_APPROVED
-      );
+    if (
+      assignment?.recording?.status >= 6 &&
+      assignment?.splitting?.status >= 6 &&
+      assignment?.qc?.status >= 6
+    ) {
+      completedChapters++;
+    }
+  });
 
-      if (hasCombinedCompleted) {
-        completedChapters++;
-        return;
-      }
-
-      const rec = chapterAssignments.find(a => a.typeId === 3);
-      const split = chapterAssignments.find(a => a.typeId === 2);
-
-      const recDone =
-        rec && rec.chapterstatus >= CHAPTER_STATUS.QC_APPROVED;
-
-      const splitDone =
-        split && split.chapterstatus >= CHAPTER_STATUS.QC_APPROVED;
-
-      if (recDone && splitDone) {
-        completedChapters++;
-      }
-    });
-
-    return Math.round((completedChapters / totalChapters) * 100);
-  };
+  return Math.round((completedChapters / totalChapters) * 100);
+};
 
     if (loading) {
       return (
-        <Layout title="Book Details">
+        <Layout title="Book Assignment List" subtitle="View and check all assigned books">
           <div className="flex items-center justify-center h-[70vh]">
             <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
           </div>

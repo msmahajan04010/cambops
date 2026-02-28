@@ -132,9 +132,6 @@ export default function UserMaster() {
         <Layout title="User Master" subtitle="Add or Update the Users">
             <div className="max-w-6xl mx-auto">
 
-
-
-
                 <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-8">
                     {editingUser && (
                         <div className="mb-6 bg-blue-900 bg-opacity-30 border border-blue-700 rounded-xl p-4 flex items-center gap-3">

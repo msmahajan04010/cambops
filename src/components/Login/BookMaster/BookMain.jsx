@@ -1,4 +1,4 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../Layout/AdminLayout';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -15,11 +15,13 @@ export default function BookMaster() {
   const [selectedChapters, setSelectedChapters] = useState([]);
   const [bookLink, setBookLink] = useState('');
   const location = useLocation();
-const editingBook = location.state?.book || null;
-const [isEditMode, setIsEditMode] = useState(false);
+  const editingBook = location.state?.book || null;
+  const [isEditMode, setIsEditMode] = useState(false);
 
-  const CLOUD_NAME = "drfek4vzw";
-  const UPLOAD_PRESET = "CAMBAI";
+
+
+  const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
   const [bookCode, setBookCode] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -31,22 +33,23 @@ const [isEditMode, setIsEditMode] = useState(false);
   ];
 
   useEffect(() => {
-  if (editingBook) {
-    setIsEditMode(true);
+    if (editingBook) {
 
-    setBookName(editingBook.bookName || '');
-    setBookCode(editingBook.bookCode || '');
-    setMaxChapterLimit(editingBook.maxChapterLimit || '');
-    setSelectedLanguage(editingBook.language || '');
-    setBookLink(editingBook.bookLink || '');
+      setIsEditMode(true);
 
-    // Extract chapter numbers from chapters array
-    if (editingBook.chapters) {
-      const chapterNumbers = editingBook.chapters.map(ch => ch.chapterNumber);
-      setSelectedChapters(chapterNumbers);
+      setBookName(editingBook.bookName || '');
+      setBookCode(editingBook.bookCode || '');
+      setMaxChapterLimit(editingBook.maxChapterLimit || '');
+      setSelectedLanguage(editingBook.language || '');
+      setBookLink(editingBook.bookLink || '');
+
+      // Extract chapter numbers from chapters array
+      if (editingBook.chapters) {
+        const chapterNumbers = editingBook.chapters.map(ch => ch.chapterNumber);
+        setSelectedChapters(chapterNumbers);
+      }
     }
-  }
-}, [editingBook]);
+  }, [editingBook]);
 
   // Generate chapter checkboxes based on max chapter limit
   const generateChapters = () => {
@@ -74,83 +77,84 @@ const [isEditMode, setIsEditMode] = useState(false);
     }
   };
 
- const handleSave = async () => {
-  if (
-    !bookName ||
-    !bookCode ||
-    !maxChapterLimit ||
-    !selectedLanguage ||
-    selectedChapters.length === 0
-  ) {
-    toast.error("Please fill all required fields");
-    return;
-  }
+  const handleSave = async () => {
+    if (
+      !bookName ||
+      !bookCode ||
+      !maxChapterLimit ||
+      !selectedLanguage ||
+      selectedChapters.length === 0
+    ) {
+      toast.error("Please fill all required fields");
+      return;
+    }
 
-  try {
-     setLoading(true);
-    let uploadedPdfUrl = editingBook?.pdfUrl || null;
 
-    // If new file selected → upload
-    if (selectedFile) {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("upload_preset", UPLOAD_PRESET);
+    try {
+      setLoading(true);
+      let uploadedPdfUrl = editingBook?.pdfUrl || null;
 
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`,
-        {
-          method: "POST",
-          body: formData,
+      // If new file selected → upload
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("upload_preset", UPLOAD_PRESET);
+
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        const data = await response.json();
+
+        if (!data.secure_url) {
+          toast.error("Upload failed");
+          return;
         }
-      );
 
-      const data = await response.json();
-
-      if (!data.secure_url) {
-        toast.error("Upload failed");
-        return;
+        uploadedPdfUrl = data.secure_url;
       }
 
-      uploadedPdfUrl = data.secure_url;
-    }
+      const chapterDetails = selectedChapters.map((ch) => ({
+        chapterNumber: ch,
+        chapterName: `${ch}_BK_ADBL_${bookCode}`
+      }));
 
-    const chapterDetails = selectedChapters.map((ch) => ({
-      chapterNumber: ch,
-      chapterName: `${ch}_BK_ADBL_${bookCode}`
-    }));
+      const bookData = {
+        bookName,
+        bookCode,
+        language: selectedLanguage,
+        maxChapterLimit: parseInt(maxChapterLimit),
+        chapters: chapterDetails,
+        pdfUrl: uploadedPdfUrl,
+        bookLink: bookLink || null,
+        updatedAt: new Date()
+      };
 
-    const bookData = {
-      bookName,
-      bookCode,
-      language: selectedLanguage,
-      maxChapterLimit: parseInt(maxChapterLimit),
-      chapters: chapterDetails,
-      pdfUrl: uploadedPdfUrl,
-      bookLink: bookLink || null,
-      updatedAt: new Date()
-    };
-
-    if (isEditMode) {
-      await updateDoc(doc(db, "books", editingBook.id), bookData);
-       setLoading(false);
-      toast.success(`Book : ${bookName} updated successfully.`);
-    } else {
-      await addDoc(collection(db, "books"), {
-        ...bookData,
-        status: 1,
-        createdAt: new Date()
-      });
+      if (isEditMode) {
+        await updateDoc(doc(db, "books", editingBook.id), bookData);
         setLoading(false);
-      toast.success(`Book : ${bookName} saved successfully.`);
+        toast.success(`Book : ${bookName} updated successfully.`);
+      } else {
+        await addDoc(collection(db, "books"), {
+          ...bookData,
+          status: 1,
+          createdAt: new Date()
+        });
+        setLoading(false);
+        toast.success(`Book : ${bookName} saved successfully.`);
+      }
+
+      navigate("/BMList");
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Error saving book");
     }
-
-    navigate("/BMList");
-
-  } catch (error) {
-    console.error(error);
-    toast.error("Error saving book");
-  }
-};
+  };
 
 
   const handleCancel = () => {
@@ -165,27 +169,30 @@ const [isEditMode, setIsEditMode] = useState(false);
 
   const chapters = generateChapters();
 
-        if (loading) {
-  return (
-    <Layout title="Dashboard">
-      <div className="flex items-center justify-center h-[70vh]">
-        <div className="flex flex-col items-center gap-4">
-          
-          {/* Spinner */}
-          <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+  if (loading) {
+    return (
+      <Layout
+      title={isEditMode ? "Edit Book" : "Book Master"}
+      subtitle={isEditMode ? "Update book details" : "Add and manage your book collection"}
+    >
+        <div className="flex items-center justify-center h-[70vh]">
+          <div className="flex flex-col items-center gap-4">
 
-          <p className="text-gray-400 text-sm">Saving Book Data...</p>
+            {/* Spinner */}
+            <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+
+            <p className="text-gray-400 text-sm">Saving Book Data...</p>
+          </div>
         </div>
-      </div>
-    </Layout>
-  );
-}
+      </Layout>
+    );
+  }
 
   return (
-    <Layout 
-  title={isEditMode ? "Edit Book" : "Book Master"} 
-  subtitle={isEditMode ? "Update book details" : "Add and manage your book collection"}
->
+    <Layout
+      title={isEditMode ? "Edit Book" : "Book Master"}
+      subtitle={isEditMode ? "Update book details" : "Add and manage your book collection"}
+    >
       <div className="min-h-screen bg-black p-3 sm:p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -223,7 +230,7 @@ const [isEditMode, setIsEditMode] = useState(false);
                   <input
                     id="bookCode"
                     type="text"
-                     maxLength={45}
+                    maxLength={45}
                     value={bookCode}
                     onChange={(e) => setBookCode(e.target.value)}
                     className="w-full text-base px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl transition-all duration-200 outline-none placeholder-gray-500"
@@ -241,20 +248,20 @@ const [isEditMode, setIsEditMode] = useState(false);
                   <label htmlFor="maxChapter" className="block text-sm font-medium text-gray-300">
                     Max Chapter Limit <span className="text-red-400">*</span>
                   </label>
-                <input
-  id="maxChapter"
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  maxLength={3}
-  value={maxChapterLimit}
-  onChange={(e) => {
-    const value = e.target.value.replace(/\D/g, ''); // allow only digits
-    setMaxChapterLimit(value.slice(0, 3)); // limit to 3 digits
-    setSelectedChapters([]);
-  }}
-  className="w-full text-base px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl transition-all duration-200 outline-none placeholder-gray-500"
-/>
+                  <input
+                    id="maxChapter"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={3}
+                    value={maxChapterLimit}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, ''); // allow only digits
+                      setMaxChapterLimit(value.slice(0, 3)); // limit to 3 digits
+                      setSelectedChapters([]);
+                    }}
+                    className="w-full text-base px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl transition-all duration-200 outline-none placeholder-gray-500"
+                  />
                 </div>
 
                 {/* Select Language */}
@@ -294,14 +301,14 @@ const [isEditMode, setIsEditMode] = useState(false);
               {chapters.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                   <label className="block text-sm font-medium text-gray-300">
-  Select Chapters <span className="text-red-400">*</span>
-  <span className="ml-3">
-    Selected : <span className="text-white font-semibold">
-      {selectedChapters.length}
-    </span> / {chapters.length} chapters
-  </span>
-</label>
+                    <label className="block text-sm font-medium text-gray-300">
+                      Select Chapters <span className="text-red-400">*</span>
+                      <span className="ml-3">
+                        Selected : <span className="text-white font-semibold">
+                          {selectedChapters.length}
+                        </span> / {chapters.length} chapters
+                      </span>
+                    </label>
                     <button
                       type="button"
                       onClick={handleSelectAll}
@@ -331,7 +338,7 @@ const [isEditMode, setIsEditMode] = useState(false);
                       ))}
                     </div>
                   </div>
-                 
+
                 </div>
               )}
 

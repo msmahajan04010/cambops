@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, updateDoc, doc, deleteDoc, writeBatch } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, deleteDoc, writeBatch, arrayUnion } from "firebase/firestore";
 import toast from "react-hot-toast";
 import { db } from "../../../firebase";
 import Layout from "../Layout/AdminLayout";
@@ -18,51 +18,28 @@ export default function MyAssignments() {
 
 
   const userTypeId = getCookie("userTypeId");
+  const [loading, setLoading] = useState(false);
 
-  const handleResetData = async () => {
-    const confirmReset = window.confirm(
-      "⚠️ WARNING: This will DELETE ALL DATA from Firestore.\n\nCollections:\n- books\n- chapterAssignments\n- config\n- test\n- transactions\n- users\n\nThis cannot be undone.\n\nAre you absolutely sure?"
-    );
 
-    if (!confirmReset) return;
 
-    try {
-      toast.loading("Deleting database...");
 
-      const collectionsToDelete = [
-        "books",
-        "chapterAssignments",
-        "config",
-        "test",
-        "transactions",
-        "users"
-      ];
 
-      for (const collectionName of collectionsToDelete) {
-        const snapshot = await getDocs(collection(db, collectionName));
-
-        if (!snapshot.empty) {
-          const batch = writeBatch(db);
-
-          snapshot.docs.forEach((document) => {
-            batch.delete(doc(db, collectionName, document.id));
-          });
-
-          await batch.commit();
-        }
-      }
-
-      toast.dismiss();
-      toast.success("🔥 All Collections Deleted Successfully!");
-
-    } catch (error) {
-      console.error(error);
-      toast.dismiss();
-      toast.error("❌ Error clearing database");
-    }
+  const addHistory = async (assignmentId, stage, action, extra = {}) => {
+    await updateDoc(doc(db, "chapterAssignments", assignmentId), {
+      history: arrayUnion({
+        stage,
+        action,
+        userId: userId,
+        role: userTypeId,
+        timestamp: new Date(),
+        ...extra
+      })
+    });
   };
 
+
   const fetchAssignments = async () => {
+
     const snap = await getDocs(collection(db, "chapterAssignments"));
 
     const allAssignments = snap.docs.map(d => ({
@@ -137,77 +114,175 @@ export default function MyAssignments() {
 
   const confirmAccept = async () => {
     if (!selectedAssignment) return;
+
+    setLoading(true);
     const updatePayload = {};
+    const historyEntries = [];
 
     if (selectedAssignment.recording?.userId === userId) {
       updatePayload["recording.status"] = 2;
+
+      historyEntries.push({
+        stage: "recording",
+        action: "accepted",
+        userId: userId,
+        role: userTypeId,
+        timestamp: new Date()
+      });
     }
 
     if (selectedAssignment.splitting?.userId === userId) {
       updatePayload["splitting.status"] = 2;
+
+      historyEntries.push({
+        stage: "splitting",
+        action: "accepted",
+        userId: userId,
+        role: userTypeId,
+        timestamp: new Date()
+      });
     }
 
     if (selectedAssignment.qc?.userId === userId) {
       updatePayload["qc.status"] = 2;
+
+      historyEntries.push({
+        stage: "qc",
+        action: "accepted",
+        userId: userId,
+        role: userTypeId,
+        timestamp: new Date()
+      });
     }
 
-    await updateDoc(doc(db, "chapterAssignments", selectedAssignment.id), updatePayload);
+    await updateDoc(doc(db, "chapterAssignments", selectedAssignment.id), {
+      ...updatePayload,
+      history: arrayUnion(...historyEntries)
+    });
+
     toast.success("Chapter accepted successfully.");
 
     setShowBookModal(false);
     setSelectedAssignment(null);
     setBookDetails(null);
-
+    setLoading(false);
     fetchAssignments();
   };
 
   const handleComplete = async (a) => {
-    console.log("id ", a)
     const updatePayload = {};
+    const historyEntries = [];
+    setLoading(true);
 
     if (a.recording?.userId === userId) {
       updatePayload["recording.status"] = 3;
+
+      historyEntries.push({
+        stage: "recording",
+        action: "completed",
+        userId: userId,
+        role: userTypeId,
+        timestamp: new Date()
+      });
     }
 
     if (a.splitting?.userId === userId) {
       updatePayload["splitting.status"] = 3;
+
+      historyEntries.push({
+        stage: "splitting",
+        action: "completed",
+        userId: userId,
+        role: userTypeId,
+        timestamp: new Date()
+      });
     }
 
     if (a.qc?.userId === userId) {
       updatePayload["qc.status"] = 3;
+
+      historyEntries.push({
+        stage: "qc",
+        action: "completed",
+        userId: userId,
+        role: userTypeId,
+        timestamp: new Date()
+      });
     }
 
-    await updateDoc(doc(db, "chapterAssignments", a.id), updatePayload);
+    await updateDoc(doc(db, "chapterAssignments", a.id), {
+      ...updatePayload,
+      history: arrayUnion(...historyEntries)
+    });
+
     toast.success("Chapter completed successfully.");
     fetchAssignments();
+    setLoading(false);
   };
+
+
 
   const handleDecline = async () => {
     if (!remark) {
       toast.error("Please enter remark");
       return;
     }
-
+    setLoading(true);
     const updatePayload = {};
+    const historyEntries = [];
 
     if (selectedAssignment.recording?.userId === userId) {
       updatePayload["recording.status"] = 8;
+
+      historyEntries.push({
+        stage: "recording",
+        action: "declined",
+        userId: userId,
+        role: userTypeId,
+        remark: remark,
+        timestamp: new Date()
+      });
     }
 
     if (selectedAssignment.splitting?.userId === userId) {
       updatePayload["splitting.status"] = 8;
+
+      historyEntries.push({
+        stage: "splitting",
+        action: "declined",
+        userId: userId,
+        role: userTypeId,
+        remark: remark,
+        timestamp: new Date()
+      });
     }
 
     if (selectedAssignment.qc?.userId === userId) {
       updatePayload["qc.status"] = 8;
+
+      historyEntries.push({
+        stage: "qc",
+        action: "declined",
+        userId: userId,
+        role: userTypeId,
+        remark: remark,
+        timestamp: new Date()
+      });
     }
 
     updatePayload["userRemark"] = remark;
 
-    await updateDoc(doc(db, "chapterAssignments", selectedId), updatePayload);
+    await updateDoc(doc(db, "chapterAssignments", selectedAssignment.id), {
+      ...updatePayload,
+      history: arrayUnion(...historyEntries)
+    });
+
+    toast.success("Chapter declined successfully.");
 
     setRemark("");
+    setSelectedAssignment(null);
     setSelectedId(null);
+    setLoading(false);
     fetchAssignments();
   };
 
@@ -253,18 +328,20 @@ export default function MyAssignments() {
     return "-";
   };
 
+  if (loading) {
+    return (
+      <Layout title="My Assignments" subtitle="Assignment for the Recording/Splitting Users">
+        <div className="flex items-center justify-center h-[70vh]">
+          <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
-    <Layout title="My Assignments">
+    <Layout title="My Assignments" subtitle="Assignment for the Recording/Splitting Users">
 
-      <button
-        onClick={handleResetData}
-        className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold"
-      >
-        🔥 Reset Book & Assignment Data
-      </button>
-
-
+      
       <div className="bg-gray-900 p-6 rounded-xl text-white">
 
         <div className="mb-4">
@@ -380,26 +457,26 @@ export default function MyAssignments() {
                           )}
 
                           {currentStatus === 'Accepted' && (
-                          <button
-  onClick={() => handleComplete(a)}
-  className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center justify-center"
-  title="Mark as Complete"
->
-  <svg
-    className="w-5 h-5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-    strokeWidth={2}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M9 12l2 2 4-4"
-    />
-    <circle cx="12" cy="12" r="9" />
-  </svg>
-</button>
+                            <button
+                              onClick={() => handleComplete(a)}
+                              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center justify-center"
+                              title="Mark as Complete"
+                            >
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M9 12l2 2 4-4"
+                                />
+                                <circle cx="12" cy="12" r="9" />
+                              </svg>
+                            </button>
                           )}
 
                           {parseInt(currentStatus) >= 3 && (

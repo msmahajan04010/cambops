@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, updateDoc, doc, query, where } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, query, where, arrayUnion } from "firebase/firestore";
 import { db } from "../../../firebase";
 import Layout from "../Layout/AdminLayout";
 import toast from "react-hot-toast";
@@ -11,7 +11,24 @@ export default function QCModule() {
   const userId = getCookie("userId");
   const [modalMode, setModalMode] = useState(null);
   const [remarkType, setRemarkType] = useState(null);
-  console.log("userId", userId)
+  const [loading, setLoading] = useState(false);
+
+  const [showBookModal, setShowBookModal] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [bookDetails, setBookDetails] = useState(null);
+
+  const addHistory = async (assignmentId, action, extra = {}) => {
+    await updateDoc(doc(db, "chapterAssignments", assignmentId), {
+      history: arrayUnion({
+        stage: "qc",
+        action,
+        userId: userId,
+        role: "qc",
+        timestamp: new Date(),
+        ...extra
+      })
+    });
+  };
 
 
   const isTeamCompleted = (assignment) => {
@@ -23,9 +40,6 @@ export default function QCModule() {
 
 
 
-  const [showBookModal, setShowBookModal] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [bookDetails, setBookDetails] = useState(null);
 
   function getCookie(name) {
     const value = `; ${document.cookie}`;
@@ -34,6 +48,7 @@ export default function QCModule() {
   }
 
   const fetchAssignments = async () => {
+    setLoading(true);
     const q = query(
       collection(db, "chapterAssignments"),
       where("qc.userId", "==", userId)
@@ -46,7 +61,7 @@ export default function QCModule() {
       ...d.data()
     }));
 
-    console.log("data", data)
+    setLoading(false);
 
     setAssignments(data);
   };
@@ -77,47 +92,40 @@ export default function QCModule() {
     }
   };
 
-  const handleViewClick = async (assignment) => {
-    try {
-      const bookSnap = await getDocs(collection(db, "books"));
-      const books = bookSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
-
-      const book = books.find(b => b.id === assignment.bookId);
-
-      setBookDetails(book);
-      setSelectedAssignment(assignment);
-      setModalMode("view");
-      setShowBookModal(true);
-
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const confirmQCAccept = async () => {
     if (!selectedAssignment) return;
+
+    setLoading(true);
 
     await updateDoc(doc(db, "chapterAssignments", selectedAssignment.id), {
       "qc.status": 2,
       qcAcceptedAt: new Date()
     });
-    toast.success("QC Accepted successfully");
+
+    await addHistory(selectedAssignment.id, "accepted");
+
+    toast.success("QC Accepted successfully.");
+
 
     setShowBookModal(false);
     setSelectedAssignment(null);
     setBookDetails(null);
-
+    setLoading(false);
     fetchAssignments();
   };
 
   const handleFinish = async (id) => {
+    setLoading(true);
     await updateDoc(doc(db, "chapterAssignments", id), {
-      "qc.status": 3
+      "qc.status": 3,
+      qcCompletedAt: new Date()
     });
-    toast.success("Chapter Finished successfully");
+
+
+    await addHistory(id, "approved");
+
+    toast.success("QC Approved successfully.");
+    setLoading(false);
     fetchAssignments();
   };
 
@@ -128,28 +136,36 @@ export default function QCModule() {
     }
 
     try {
+      setLoading(true);
       await updateDoc(doc(db, "chapterAssignments", selectedId), {
-        "recording.status": 2,   // back to Accepted
-        "splitting.status": 2,   // back to Accepted
-        "qc.status": 2,          // reset QC
+        "recording.status": 2,
+        "splitting.status": 2,
+        "qc.status": 1,
         qcRemark: remark,
         qcReassignedAt: new Date()
       });
 
-      toast.success("Chapter sent back for rework");
+      await addHistory(selectedId, "reassigned", {
+        remark: remark
+      });
+
+      toast.success("Chapter sent back for rework.");
 
       setRemark("");
       setSelectedId(null);
+      setLoading(false);
       fetchAssignments();
 
     } catch (error) {
+      setLoading(false);
       toast.error("Error during reassignment");
     }
-
   };
 
   const getStatusText = (status) => {
-    switch (status) {
+    switch (parseInt(status)) {
+      case 1: return "Assigned";
+      case 2: return "Accepted";
       case 3: return "Completed - Waiting QC";
       case 4: return "Under QC Observation";
       case 5: return "QC Approved";
@@ -166,42 +182,45 @@ export default function QCModule() {
 
     if (!selectedAssignment) return;
 
-    const updatePayload = {};
-
-    if (selectedAssignment.recording?.userId === userId) {
-      updatePayload["recording.status"] = 8;
-    }
-
-    if (selectedAssignment.splitting?.userId === userId) {
-      updatePayload["splitting.status"] = 8;
-    }
-
-    if (selectedAssignment.qc?.userId === userId) {
-      updatePayload["qc.status"] = 8;
-    }
-
-    updatePayload["userRemark"] = remark;
-    updatePayload["declinedAt"] = new Date();
-
     try {
+      setLoading(true);
       await updateDoc(
         doc(db, "chapterAssignments", selectedAssignment.id),
-        updatePayload
+        {
+          "qc.status": 8,
+          qcRemark: remark,
+          declinedAt: new Date()
+        }
       );
 
-      toast.success("Chapter declined successfully");
+      await addHistory(selectedAssignment.id, "declined", {
+        remark: remark
+      });
+
+      toast.success("QC Declined successfully.");
 
       setRemark("");
       setSelectedId(null);
       setSelectedAssignment(null);
-
+      setLoading(false);
       fetchAssignments();
 
     } catch (error) {
+      setLoading(false);
       toast.error("Error declining chapter");
     }
   };
 
+
+  if (loading) {
+    return (
+      <Layout title="QC Panel" subtitle="QC Module">
+        <div className="flex items-center justify-center h-[70vh]">
+          <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="QC Panel" subtitle="QC Module">
@@ -289,59 +308,59 @@ export default function QCModule() {
                         </>
                       )}
                       {a.qc?.status === 2 && (
-                       <>
-  {/* FINISH */}
-  <button
-    onClick={() => handleFinish(a.id)}
-    className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center justify-center"
-    title="Finish QC"
-  >
-    <svg
-      className="w-5 h-5"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 12l2 2 4-4"
-      />
-      <circle cx="12" cy="12" r="9" />
-    </svg>
-  </button>
+                        <>
+                          {/* FINISH */}
+                          <button
+                            onClick={() => handleFinish(a.id)}
+                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center justify-center"
+                            title="Finish QC"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 12l2 2 4-4"
+                              />
+                              <circle cx="12" cy="12" r="9" />
+                            </svg>
+                          </button>
 
-  {/* REASSIGN */}
-  <button
-    onClick={() => {
-      setSelectedAssignment(a);
-      setSelectedId(a.id);
-      setRemarkType("reassign");
-    }}
-    className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center justify-center"
-    title="Reassign"
-  >
-    <svg
-      className="w-5 h-5"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 4v6h6M20 20v-6h-6"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M20 14a8 8 0 00-14-4m-2 4a8 8 0 0014 4"
-      />
-    </svg>
-  </button>
-</>
+                          {/* REASSIGN */}
+                          <button
+                            onClick={() => {
+                              setSelectedAssignment(a);
+                              setSelectedId(a.id);
+                              setRemarkType("reassign");
+                            }}
+                            className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center justify-center"
+                            title="Reassign"
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M4 4v6h6M20 20v-6h-6"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M20 14a8 8 0 00-14-4m-2 4a8 8 0 0014 4"
+                              />
+                            </svg>
+                          </button>
+                        </>
                       )}
 
 

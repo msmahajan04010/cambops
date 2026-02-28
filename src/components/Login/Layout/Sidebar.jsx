@@ -108,6 +108,18 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
         </svg>
       )
     },
+     {
+      id: 'Tr',
+      name: 'Truncate',
+      path: '/TR',
+      roles: [0],
+        icon: (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7v12m6-12v12M4 7h16" />
+    </svg>
+  )
+
+    },
     {
       id: 'transaction',
       name: 'Transaction',

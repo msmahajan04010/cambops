@@ -14,13 +14,14 @@ export default function BookList() {
 
 
     const languages = ['All Languages', 'English', 'Hindi', 'Gujarati'];
-
+ const [loading, setLoading] = useState(false);
 
 
 
 
     const fetchBooks = async () => {
         try {
+              setLoading(true);
             const bookSnap = await getDocs(collection(db, "books"));
             const assignSnap = await getDocs(collection(db, "chapterAssignments"));
 
@@ -93,11 +94,13 @@ export default function BookList() {
                 };
             });
 
-            console.log("books", books)
+           
 
             setBookList(books);
+             setLoading(false);
 
         } catch (error) {
+             setLoading(false);
             console.error("Error fetching books:", error);
         }
     };
@@ -110,14 +113,16 @@ export default function BookList() {
         if (!window.confirm("Mark this book as Delivered to Client?")) return;
 
         try {
+              setLoading(true);
             await updateDoc(doc(db, "books", id), {
                 bookStatus: 2
             });
             toast.success("Book Delivered to Client successfully.");
-
+ setLoading(false);
             fetchBooks();
         } catch (error) {
-            toast.success(`Error updating Book Delivery Status : ${error}`);
+            toast.error(`Error updating Book Delivery Status : ${error}`);
+             setLoading(false);
             console.error("Error updating book status:", error);
         }
     };
@@ -175,6 +180,17 @@ export default function BookList() {
         (sum, book) => sum + (book.chapters?.length || 0),
         0
     );
+
+    
+  if (loading) {
+    return (
+      <Layout title="Book List" subtitle="View and manage all books in the system">
+        <div className="flex items-center justify-center h-[70vh]">
+          <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+        </div>
+      </Layout>
+    );
+  }
 
     return (
         <Layout title="Book List" subtitle="View and manage all books in the system">

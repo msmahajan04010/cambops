@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc,arrayUnion  } from "firebase/firestore";
 import { db } from "../../../firebase";
 import Layout from "../Layout/AdminLayout";
 import toast from "react-hot-toast";
@@ -32,6 +32,18 @@ export default function BookDetails() {
     indexOfFirst,
     indexOfLast
   );
+
+  const addAdminHistory = async (assignmentId, action, extra = {}) => {
+  await updateDoc(doc(db, "chapterAssignments", assignmentId), {
+    history: arrayUnion({
+      stage: "admin",
+      action,
+      role: "admin",
+      timestamp: new Date(),
+      ...extra
+    })
+  });
+};
 
   useEffect(() => {
     fetchData();
@@ -88,53 +100,76 @@ export default function BookDetails() {
   // ==============================
   // Deliver Chapter
   // ==============================
-  const handleFinalDeliver = async () => {
-    if (!chapterHours) {
-      toast.error("Enter Chapter Hours");
-      return;
-    }
+const handleFinalDeliver = async () => {
+  if (!chapterHours) {
+    toast.error("Enter Chapter Hours");
+    return;
+  }
 
-    try {
-      await updateDoc(
-        doc(db, "chapterAssignments", selectedAssignment.id),
-        {
-          "recording.status": 6,
-          "splitting.status": 6,
-          "qc.status": 6,
-          hours: Number(chapterHours),
-          deliveredAt: new Date()
-        }
-      );
 
-      toast.success("Chapter delivered successfully.");
-      setShowDeliverModal(false);
-      setChapterHours("");
-      setSelectedAssignment(null);
-      fetchData();
+  try {
 
-    } catch (error) {
-      toast.error("Error delivering chapter");
-    }
-  };
+    setLoading(true);
+    await updateDoc(
+      doc(db, "chapterAssignments", selectedAssignment.id),
+      {
+        "recording.status": 6,
+        "splitting.status": 6,
+        "qc.status": 6,
+        hours: Number(chapterHours),
+        deliveredAt: new Date()
+      }
+    );
 
+    await addAdminHistory(selectedAssignment.id, "delivered", {
+      hours: Number(chapterHours)
+    });
+
+    toast.success("Chapter delivered successfully.");
+
+    setShowDeliverModal(false);
+    setChapterHours("");
+    setSelectedAssignment(null);
+     setLoading(false);
+    fetchData();
+
+
+  } catch (error) {
+    setLoading(false);
+    toast.error("Error delivering chapter");
+  }
+};
   // ==============================
   // Revert Chapter
   // ==============================
-  const handleRevert = async (assignmentId) => {
+const handleRevert = async (assignmentId) => {
+  try {
+    setLoading(true);
     await updateDoc(doc(db, "chapterAssignments", assignmentId), {
       "recording.status": 2,
       "splitting.status": 2,
-      "qc.status": 2,
-      adminRemark: "Reverted by Admin"
+      "qc.status": 1,
+      adminRemark: "Reverted by Admin",
+      revertedAt: new Date()
     });
 
-    toast.success("Chapter reverted.");
+    await addAdminHistory(assignmentId, "reverted", {
+      remark: "Reverted by Admin"
+    });
+
+    toast.success("Chapter reverted successfully");
+    setLoading(false);
     fetchData();
-  };
+
+  } catch (error) {
+     setLoading(false);
+    toast.error("Error reverting chapter");
+  }
+};
 
   if (loading) {
     return (
-      <Layout title="Book Details">
+      <Layout title="Book Details" subtitle="View and manage all Book Specific Progress">
         <div className="flex items-center justify-center h-[70vh]">
           <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
         </div>
@@ -190,7 +225,14 @@ export default function BookDetails() {
                     className="border-b border-gray-800 hover:bg-gray-800/40">
 
                     <td className="py-3 px-3">{indexOfFirst + index + 1}</td>
-                    <td className="py-3 px-3">{chapter.chapterName}</td>
+                    <td
+                      className="py-3 px-3 cursor-pointer text-blue-400 hover:underline"
+                      onClick={() =>
+                        navigate(`/book/${bookId}/chapter/${chapter.chapterName}/${chapter.chapterNumber}`)
+                      }
+                    >
+                      {chapter.chapterName}
+                    </td>
 
                     <td className="py-3 px-3">
                       {getUserName(recording?.userId)}
@@ -296,8 +338,8 @@ export default function BookDetails() {
                   key={i}
                   onClick={() => setCurrentPage(i + 1)}
                   className={`px-3 py-2 rounded-lg ${currentPage === i + 1
-                      ? "bg-white text-black font-semibold"
-                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    ? "bg-white text-black font-semibold"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                     }`}
                 >
                   {i + 1}

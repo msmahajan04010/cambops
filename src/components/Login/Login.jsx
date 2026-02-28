@@ -18,96 +18,96 @@ export default function Login() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+ const handleLogin = async (e) => {
+  e.preventDefault();
 
+  if (loading) return; // prevent double click
+  setLoading(true);
 
+  try {
 
-    // 1️⃣ Hardcoded Admin
     if (username === "admin" && password === "Admin@123") {
       Cookies.set("userTypeId", 0, { expires: 1 });
       Cookies.set("userId", 0, { expires: 1 });
       Cookies.set("userName", "Admin", { expires: 1 });
-      setUsername('');
-      setPassword('');
       navigate("/DB");
       return;
     }
 
-    try {
-      // 2️⃣ Check Firestore users
-      const q = query(
-        collection(db, "users"),
-        where("firstName", "==", username),
-        where("password", "==", password),
-        where("status", "==", "Active")
-      );
-      const snapshot = await getDocs(q);
+    const q = query(
+      collection(db, "users"),
+      where("firstName", "==", username),
+      where("password", "==", password),
+      where("status", "==", "Active")
+    );
 
+    const snapshot = await getDocs(q);
 
-
-
-      if (snapshot.empty) {
-        toast.error("Invalid UserName or Password.")
-        setError("❌ Invalid username or password");
-        return;
-      }
-
-      const userDoc = snapshot.docs[0];
-      const userData = userDoc.data();
-
-      console.log("userData", userData, userData)
-
-      // 3️⃣ Check change password flag
-      if (userData.ischangepwd === 0) {
-        setCurrentUserId(userDoc.id);   // store for update
-        setShowModal(true);
-        return;
-      }
-      // Store user info in cookies
-      Cookies.set("userTypeId", userData.userTypeId, { expires: 1 });
-      Cookies.set("userId", userDoc.id, { expires: 1 });
-      Cookies.set("userName", userData.firstName + " " + userData.lastName, { expires: 1 });
-      setUsername('');
-      setPassword('');
-      navigate("/DB");
-
-
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handlePasswordChange = async () => {
-    if (!newPassword || !confirmPassword) {
-      toast.error("Please fill all fields");
+    if (snapshot.empty) {
+      toast.error("Invalid UserName or Password.");
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+    const userDoc = snapshot.docs[0];
+    const userData = userDoc.data();
+
+    // 🔥 IMPORTANT: STOP HERE IF PASSWORD CHANGE REQUIRED
+    if (userData.ischangepwd === 0) {
+      setCurrentUserId(userDoc.id);
+      setShowModal(true);
       return;
     }
 
-    try {
-      await updateDoc(doc(db, "users", currentUserId), {
-        password: newPassword,
-        ischangepwd: 1,
-      });
+    Cookies.set("userTypeId", userData.userTypeId, { expires: 1 });
+    Cookies.set("userId", userDoc.id, { expires: 1 });
+    Cookies.set("userName", userData.firstName + " " + userData.lastName, { expires: 1 });
 
-      toast.success("Password changed successfully. Please login again with new password.");
+    navigate("/DB");
 
-      setShowModal(false);
-      setUsername("");
-      setPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+};
 
-    } catch (error) {
-      console.error(error);
-    }
-  };
+const handlePasswordChange = async () => {
+  if (!newPassword || !confirmPassword) {
+    toast.error("Please fill all fields");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    toast.error("Passwords do not match");
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, "users", currentUserId), {
+      password: newPassword,
+      ischangepwd: 1,
+    });
+
+    setShowModal(false);
+
+    // CLEAR ALL LOGIN STATE
+    setUsername("");
+    setPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setCurrentUserId(null);
+
+    toast.success("Password changed successfully. Please login again.");
+
+    // 🔥 VERY IMPORTANT
+    return;   // stop anything else
+
+  } catch (error) {
+    console.error(error);
+  }
+};
 
 
 
@@ -119,7 +119,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated background elements */}
-    
+
 
       <div className="
   relative 
@@ -135,11 +135,11 @@ export default function Login() {
         {/* Logo/Brand Section */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl mb-4 transform hover:rotate-6 transition-transform duration-300">
-              <img 
-                src={Logo} 
-                alt="CambOps Logo" 
-                className="w-25 h-25 object-contain"
-              />
+            <img
+              src={Logo}
+              alt="CambOps Logo"
+              className="w-25 h-25 object-contain"
+            />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">LOGIN</h1>
 
@@ -219,6 +219,7 @@ export default function Login() {
           <div className="flex gap-3">
             <button
               type="submit"
+               disabled={showModal}
               className="flex-1 bg-white text-black py-3 rounded-xl font-semibold hover:bg-gray-200 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-2xl"
             >
               LOGIN
@@ -255,6 +256,7 @@ export default function Login() {
                   />
 
                   <button
+                    type="button"
                     onClick={handlePasswordChange}
                     className="w-full bg-white text-black py-2 rounded font-semibold"
                   >

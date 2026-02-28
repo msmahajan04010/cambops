@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../Layout/AdminLayout';
-import { collection, getDocs, getDoc ,updateDoc,doc,setDoc    } from "firebase/firestore";
+import { collection, getDocs, getDoc, updateDoc, doc, setDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { db } from '../../../firebase';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from "react-hot-toast";
@@ -18,6 +18,18 @@ export default function UserEntryScreen() {
   const [users, setUsers] = useState([]);
   const selectedUserObj = users.find(u => u.id === selectedUser);
   const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // helper
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+  }
+
+
+
+  const userId = getCookie("userId");
 
   const fetchBooks = async () => {
     const snapshot = await getDocs(collection(db, "books"));
@@ -92,172 +104,281 @@ export default function UserEntryScreen() {
   const filteredUsers = users.filter(
     user => user.status === "Active"
   );
-  const handleTypeSelect = (typeId) => {
-    setSelectedType(typeId);
-  };
 
-const handleSave = async () => {
-  if (!selectedBook || selectedChapters.length === 0 || !selectedUser || !selectedType) {
-    toast.error("Please fill all fields");
-    return;
-  }
+  const handleSave = async () => {
+    if (!selectedBook || selectedChapters.length === 0 || !selectedUser || !selectedType) {
+      toast.error("Please fill all fields");
+      return;
+    }
+    setLoading(true);
+    try {
 
-  try {
-    const book = books.find(b => b.id === selectedBook);
+      const book = books.find(b => b.id === selectedBook);
 
-    for (const chapterNumber of selectedChapters) {
-      const chapter = book.chapters.find(
-        ch => ch.chapterNumber === chapterNumber
-      );
+      for (const chapterNumber of selectedChapters) {
+        const chapter = book.chapters.find(
+          ch => ch.chapterNumber === chapterNumber
+        );
 
-      const docId = `${book.id}_${chapter.chapterNumber}`;
-      const docRef = doc(db, "chapterAssignments", docId);
-      const existingDoc = await getDoc(docRef);
+        const docId = `${book.id}_${chapter.chapterNumber}`;
+        const docRef = doc(db, "chapterAssignments", docId);
+        const existingDoc = await getDoc(docRef);
 
-      // -------------------------------
-      // STEP 1: CREATE DOCUMENT IF NOT EXISTS
-      // -------------------------------
-      if (!existingDoc.exists()) {
-        await setDoc(docRef, {
-          bookId: book.id,
-          bookName: book.bookName,
-          chapterNumber: chapter.chapterNumber,
-          chapterName: chapter.chapterName,
+        // -------------------------------
+        // STEP 1: CREATE DOCUMENT IF NOT EXISTS
+        // -------------------------------
+        if (!existingDoc.exists()) {
+          await setDoc(docRef, {
+            bookId: book.id,
+            bookName: book.bookName,
+            chapterNumber: chapter.chapterNumber,
+            chapterName: chapter.chapterName,
 
-          recording: null,
-          splitting: null,
-          qc: null,
+            recording: null,
+            splitting: null,
+            qc: null,
+            history: [], // 👈 IMPORTANT
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
 
-          createdAt: new Date(),
-          updatedAt: new Date()
+        // -------------------------------
+        // STEP 2: PREVENT DUPLICATE STAGE ASSIGNMENT
+        // -------------------------------
+        const currentData = (await getDoc(docRef)).data();
+
+        const type = Number(selectedType);
+
+        // helper
+        const isLocked = (stageObj) => {
+          if (!stageObj) return false;
+          if (!stageObj.userId) return false;
+          return stageObj.status !== 8; // allow only if declined
+        };
+
+        // 🔒 Recording
+        if (type === 3) {
+          if (isLocked(currentData.recording)) {
+            toast.error(`Recording already active for Chapter ${chapter.chapterNumber}`);
+           return
+          }
+        }
+
+        // 🔒 Splitting
+        if (type === 2) {
+          if (isLocked(currentData.splitting)) {
+            toast.error(`Splitting already active for Chapter ${chapter.chapterNumber}`);
+           return;
+          }
+        }
+
+        // 🔒 QC
+        if (type === 4) {
+          // if (!isQCAllowed(chapter.chapterNumber)) {
+          //   toast.error(`QC not allowed until Recording & Splitting completed`);
+          //   continue;
+          // }
+
+          if (isLocked(currentData.qc)) {
+            toast.error(`QC already active for Chapter ${chapter.chapterNumber}`);
+           return;
+          }
+        }
+
+        // 🔒 Type 5 (Recording & Splitting)
+        if (type === 5) {
+          if (isLocked(currentData.recording)) {
+            toast.error(`Recording already active for Chapter ${chapter.chapterNumber}`);
+           return;
+          }
+
+          if (isLocked(currentData.splitting)) {
+            toast.error(`Splitting already active for Chapter ${chapter.chapterNumber}`);
+            return;
+          }
+        }
+        // -------------------------------
+        // STEP 3: UPDATE SPECIFIC WORKFLOW BLOCK
+        // -------------------------------
+        const updatePayload = {
+          updatedAt: new Date(),
+          userRemark: null
+        };
+
+        let historyEntries = [];
+
+
+
+        // Recording
+        if (type === 3) {
+          updatePayload.recording = {
+            userId: selectedUser,
+            status: 1,
+            assignedAt: new Date()
+          };
+
+          historyEntries.push({
+            stage: "recording",
+            action: "assigned",
+            userId: selectedUser,
+            assignedBy: userId,
+            role: "admin",
+            timestamp: new Date()
+          });
+        }
+
+        // Splitting
+        if (type === 2) {
+          updatePayload.splitting = {
+            userId: selectedUser,
+            status: 1,
+            assignedAt: new Date()
+          };
+
+          historyEntries.push({
+            stage: "splitting",
+            action: "assigned",
+            userId: selectedUser,
+            assignedBy: userId,
+            role: "admin",
+            timestamp: new Date()
+          });
+        }
+
+        // QC
+        if (type === 4) {
+          updatePayload.qc = {
+            userId: selectedUser,
+            status: 1,
+            assignedAt: new Date()
+          };
+
+          historyEntries.push({
+            stage: "qc",
+            action: "assigned",
+            userId: selectedUser,
+            assignedBy: userId,
+            role: "admin",
+            timestamp: new Date()
+          });
+        }
+
+        // 🔥 Type 5 = BOTH recording & splitting
+        if (type === 5) {
+          updatePayload.recording = {
+            userId: selectedUser,
+            status: 1,
+            assignedAt: new Date()
+          };
+
+          updatePayload.splitting = {
+            userId: selectedUser,
+            status: 1,
+            assignedAt: new Date()
+          };
+
+          historyEntries.push(
+            {
+              stage: "recording",
+              action: "assigned",
+              userId: selectedUser,
+              assignedBy: userId,
+              role: "admin",
+              timestamp: new Date()
+            },
+            {
+              stage: "splitting",
+              action: "assigned",
+              userId: selectedUser,
+              assignedBy: userId,
+              role: "admin",
+              timestamp: new Date()
+            }
+          );
+        }
+
+        await updateDoc(docRef, {
+          ...updatePayload,
+          history: arrayUnion(...historyEntries)
         });
       }
 
-      // -------------------------------
-      // STEP 2: PREVENT DUPLICATE STAGE ASSIGNMENT
-      // -------------------------------
-      const currentData = (await getDoc(docRef)).data();
+      toast.success("Chapters assigned successfully.");
+      handleCancel();
 
-if (selectedType === 3 &&
-    currentData.recording?.userId &&
-    currentData.recording?.status !== 8) {
 
-  toast.error(`Recording already assigned for Chapter ${chapter.chapterNumber}`);
-  continue;
-}
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong.");
+    }
+    finally {
+      setLoading(false); // ✅ ALWAYS STOP LOADING
+    }
+  };
 
-if (selectedType === 2 &&
-    currentData.splitting?.userId &&
-    currentData.splitting?.status !== 8) {
+  const isChapterDisabled = (chapterNumber) => {
+    const assignment = assignments.find(
+      a =>
+        a.bookId === selectedBook &&
+        a.chapterNumber === chapterNumber
+    );
 
-  toast.error(`Splitting already assigned for Chapter ${chapter.chapterNumber}`);
-  continue;
-}
+    if (!assignment) return false;
 
-if (selectedType === 4 &&
-    currentData.qc?.userId &&
-    currentData.qc?.status !== 8) {
-
-  toast.error(`QC already assigned for Chapter ${chapter.chapterNumber}`);
-  continue;
-}
-      // -------------------------------
-      // STEP 3: UPDATE SPECIFIC WORKFLOW BLOCK
-      // -------------------------------
-      const updatePayload = {
-        updatedAt: new Date()
-      };
-
-      if (selectedType === 3) {
-        updatePayload.recording = {
-          userId: selectedUser,
-          status: 1, // Assigned
-          assignedAt: new Date()
-        };
-      }
-
-      if (selectedType === 2) {
-        updatePayload.splitting = {
-          userId: selectedUser,
-          status: 1,
-          assignedAt: new Date()
-        };
-      }
-
-      if (selectedType === 4) {
-        updatePayload.qc = {
-          userId: selectedUser,
-          status: 1,
-          assignedAt: new Date()
-        };
-      }
-
-      await updateDoc(docRef, updatePayload);
+    // Recording Lock
+    if (Number(selectedType) === 3) {
+      return (
+        assignment.recording?.userId &&
+        assignment.recording?.status !== 8
+      );
     }
 
-    toast.success("Chapters assigned successfully.");
-     handleCancel();
+    // Splitting Lock
+    if (Number(selectedType) === 2) {
+      return (
+        assignment.splitting?.userId &&
+        assignment.splitting?.status !== 8
+      );
+    }
 
+    // QC Lock
+    if (Number(selectedType) === 4) {
+      // First check readiness
+      if (!isQCAllowed(chapterNumber)) return true;
 
-  } catch (error) {
-    console.error(error);
-    toast.error("Something went wrong.");
-  }
-};
+      return (
+        assignment.qc?.userId &&
+        assignment.qc?.status !== 8
+      );
+    }
 
-const isChapterDisabled = (chapterNumber) => {
-  const assignment = assignments.find(
-    a =>
-      a.bookId === selectedBook &&
-      a.chapterNumber === chapterNumber
-  );
+    if (Number(selectedType) === 5) {
+      return (
+        (assignment.recording?.userId &&
+          assignment.recording?.status !== 8) ||
+        (assignment.splitting?.userId &&
+          assignment.splitting?.status !== 8)
+      );
+    }
 
-  if (!assignment) return false;
+    return false;
+  };
 
-  // Recording Lock
-  if (selectedType === 3) {
-    return (
-      assignment.recording?.userId &&
-      assignment.recording?.status !== 8
+  const isQCAllowed = (chapterNumber) => {
+    const assignment = assignments.find(
+      a =>
+        a.bookId === selectedBook &&
+        a.chapterNumber === chapterNumber
     );
-  }
 
-  // Splitting Lock
-  if (selectedType === 2) {
-    return (
-      assignment.splitting?.userId &&
-      assignment.splitting?.status !== 8
-    );
-  }
-
-  // QC Lock
-  if (selectedType === 4) {
-    // First check readiness
-    if (!isQCAllowed(chapterNumber)) return true;
+    if (!assignment) return false;
 
     return (
-      assignment.qc?.userId &&
-      assignment.qc?.status !== 8
+      assignment.recording?.status >= 3 &&
+      assignment.splitting?.status >= 3
     );
-  }
-
-  return false;
-};
-
-const isQCAllowed = (chapterNumber) => {
-  const assignment = assignments.find(
-    a =>
-      a.bookId === selectedBook &&
-      a.chapterNumber === chapterNumber
-  );
-
-  if (!assignment) return false;
-
-  return (
-    assignment.recording?.status >= 3 &&
-    assignment.splitting?.status >= 3
-  );
-};
+  };
 
   const handleCancel = () => {
     setSelectedBook('');
@@ -266,19 +387,20 @@ const isQCAllowed = (chapterNumber) => {
     setSelectedType('');
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this entry?')) {
-      setEntryList(prev => prev.filter(entry => entry.id !== id));
-    }
-  };
 
-  const handleStatusChange = (id, newStatus) => {
-    setEntryList(prev => prev.map(entry =>
-      entry.id === id ? { ...entry, status: newStatus } : entry
-    ));
-  };
 
   const chapters = getChapters();
+
+  
+  if (loading) {
+    return (
+       <Layout title="User Assign Master" subtitle="Assign chapters to users for processing">
+        <div className="flex items-center justify-center h-[70vh]">
+          <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="User Assign Master" subtitle="Assign chapters to users for processing">
@@ -406,14 +528,14 @@ const isQCAllowed = (chapterNumber) => {
                       return (
                         <label
                           key={typeId}
-                          className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 ${selectedType === typeId
+                          className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 ${Number(selectedType) === typeId
                             ? "bg-white text-black border-white"
                             : "bg-gray-800 text-white border-gray-700"
                             }`}
                         >
                           <input
                             type="radio"
-                            checked={selectedType === typeId}
+                            checked={Number(selectedType) === typeId}
                             onChange={() => setSelectedType(typeId)}
                           />
                           <span className="text-xl">{type.icon}</span>
@@ -484,7 +606,7 @@ const isQCAllowed = (chapterNumber) => {
                 </button>
               </div>
             </div>
-                    </div>
+          </div>
         </div>
       </div>
     </Layout>

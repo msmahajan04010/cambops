@@ -22,6 +22,7 @@ export default function TransactionMaster() {
   const [transactions, setTransactions] = useState([]);
   const [showPDF, setShowPDF] = useState(false);
   const [invoiceData, setInvoiceData] = useState(null);
+  
 
   const fetchInitialData = async () => {
     // Users
@@ -198,7 +199,7 @@ export default function TransactionMaster() {
 
   return (
     <Layout title="Transaction Master" subtitle="View and manage all transactions in the system">
-      <div className="bg-gray-900 p-6 rounded-xl text-white">
+      <div className="bg-gray-900 p-3 rounded-xl text-white">
 
         {/* USER SELECT */}
         <div className="mb-4">
@@ -236,10 +237,10 @@ export default function TransactionMaster() {
             ))}
           </select>
         </div>
-         <div className="flex gap-4 mt-8 pt-6 border-t border-gray-800"> 
+        <div className="flex gap-4 mt-6 pt-6 border-t border-gray-800">
         <button
           onClick={() => navigate('/TMList')}
-            className="bg-gray-800 text-white border border-gray-700 px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-all duration-200 flex items-center gap-2"
+            className="bg-gray-800 text-white border border-gray-700 px-4 py-1 rounded-lg font-semibold hover:bg-gray-700 transition-all duration-200 flex items-center gap-4"
         >
 
           LIST
@@ -253,9 +254,10 @@ export default function TransactionMaster() {
                 <tr >
 
                   <th className="py-3 px-3 text-left">Chapter</th>
-                  <th className="py-3 px-3 text-left">Hours</th>
-                  <th className="py-3 px-3 text-left">Amount</th>
-                  <th className="py-3 px-3 text-center">Action</th>
+<th className="py-3 px-3 text-left">Work Type</th>
+<th className="py-3 px-3 text-left">Hours</th>
+<th className="py-3 px-3 text-left">Amount</th>
+<th className="py-3 px-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -264,6 +266,10 @@ export default function TransactionMaster() {
                     className="border-b border-gray-800 hover:bg-gray-800/40 transition">
 
                     <td className="py-3 px-3">{t.chapterName}</td>
+                    <td className="py-3 px-3 capitalize">
+  {t.workType}
+</td>
+
                     <td className="py-3 px-3">{t.hours}</td>
                     <td className="py-3 px-3">₹ {calculateAmount(t).toFixed(2)}</td>
                     <td className="py-3 px-3 text-center">

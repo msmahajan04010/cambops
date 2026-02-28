@@ -7,12 +7,14 @@ export default function TransactionHistory() {
   const [transactions, setTransactions] = useState([]);
   const [users, setUsers] = useState([]);
   const [books, setBooks] = useState([]);
+   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
+      setLoading(true);
     const transSnap = await getDocs(collection(db, "transactions"));
     const userSnap = await getDocs(collection(db, "users"));
     const bookSnap = await getDocs(collection(db, "books"));
@@ -25,6 +27,7 @@ export default function TransactionHistory() {
 
     setUsers(userSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     setBooks(bookSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+     setLoading(false);
   };
 
   const getUserName = (userId) => {
@@ -36,6 +39,18 @@ export default function TransactionHistory() {
     const book = books.find(b => b.id === bookId);
     return book ? book.bookName : "Unknown";
   };
+
+
+  
+  if (loading) {
+    return (
+     <Layout title="Transaction History" subtitle="View all transactions in the system">
+        <div className="flex items-center justify-center h-[70vh]">
+          <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Transaction History" subtitle="View all transactions in the system">
