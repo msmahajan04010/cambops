@@ -29,7 +29,7 @@ export default function Login() {
   try {
 
     if (username === "admin" && password === "Admin@123") {
-      Cookies.set("userTypeId", 0, { expires: 1 });
+      Cookies.set("userTypeId", 100, { expires: 1 });
       Cookies.set("userId", 0, { expires: 1 });
       Cookies.set("userName", "Admin", { expires: 1 });
       navigate("/DB");
