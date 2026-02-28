@@ -34,7 +34,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       id: 'dashboard',
       name: 'Dashboard',
       path: '/DB',
-      roles: [0, 1, 2, 3, 4, 5],
+      roles: [0, 1, 2, 3, 4, 5,100],
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -43,7 +43,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     },
     {
       id: 'config',
-      roles: [0, 1],
+      roles: [0, 1,100],
       name: 'Config',
       path: '/CM',
       icon: (
@@ -56,7 +56,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     {
       id: 'user',
       name: 'User Master',
-      roles: [0, 1],
+      roles: [0, 1,100],
       path: '/UM',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -67,7 +67,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     {
       id: 'addbook',
       name: 'Book Master',
-      roles: [0, 1],
+      roles: [0, 1,100],
       path: '/BM',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -78,7 +78,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     {
       id: 'assign',
       name: 'User Assign',
-      roles: [0, 1, 2, 3, 4, 5],
+      roles: [0, 1, 2, 3, 4, 5,100],
       path: '/UAM',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -112,7 +112,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       id: 'Tr',
       name: 'Truncate',
       path: '/TR',
-      roles: [0],
+      roles: [100],
         icon: (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7v12m6-12v12M4 7h16" />
@@ -123,7 +123,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     {
       id: 'transaction',
       name: 'Transaction',
-      roles: [0, 1, 2, 3, 4, 5],
+      roles: [0, 1, 2, 3, 4, 5,100],
       path: '/TM',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
