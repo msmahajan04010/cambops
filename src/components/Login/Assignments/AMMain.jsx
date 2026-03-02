@@ -14,6 +14,19 @@ export default function MyAssignments() {
   const [bookDetails, setBookDetails] = useState(null);
   const [modalMode, setModalMode] = useState(null);
 
+  const [remarkModalOpen, setRemarkModalOpen] = useState(false);
+  const [selectedRemark, setSelectedRemark] = useState(null);
+
+  const openRemarkModal = (remark) => {
+    setSelectedRemark(remark);
+    setRemarkModalOpen(true);
+  };
+
+  const closeRemarkModal = () => {
+    setRemarkModalOpen(false);
+    setSelectedRemark(null);
+  };
+
   const userId = getCookie("userId");
 
 
@@ -22,7 +35,20 @@ export default function MyAssignments() {
 
 
 
+  const isFinishBlocked = (assignment) => {
+    const role = parseInt(userTypeId);
 
+    const isRecordingUser = assignment.recording?.userId === userId;
+    const splittingDone = assignment.splitting?.status === 3;
+
+    if (role === 5) return false; // Recording + Splitting user allowed
+
+    if (isRecordingUser && !splittingDone) {
+      return true;
+    }
+
+    return false;
+  };
 
   const addHistory = async (assignmentId, stage, action, extra = {}) => {
     await updateDoc(doc(db, "chapterAssignments", assignmentId), {
@@ -52,11 +78,11 @@ export default function MyAssignments() {
     const uid = userId;
 
     const filtered = allAssignments.filter(a => {
-      if (role === 2) {
+      if (role === 3) {
         return a.recording?.userId === uid;
       }
 
-      if (role === 3) {
+      if (role === 2) {
         return a.splitting?.userId === uid;
       }
 
@@ -336,12 +362,15 @@ export default function MyAssignments() {
         </div>
       </Layout>
     );
+
+
   }
+
 
   return (
     <Layout title="My Assignments" subtitle="Assignment for the Recording/Splitting Users">
 
-      
+
       <div className="bg-gray-900 p-6 rounded-xl text-white">
 
         <div className="mb-4">
@@ -361,6 +390,7 @@ export default function MyAssignments() {
                 <th className="py-3 px-4 text-left">Sr. No.</th>
                 <th className="py-3 px-4 text-left">Book</th>
                 <th className="py-3 px-4 text-left">Chapter</th>
+                <th className="py-3 px-4 text-center">Remarks</th>
                 <th className="py-3 px-4 text-center">Type</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-center">Book Details</th>
@@ -378,7 +408,11 @@ export default function MyAssignments() {
               ) : (
                 assignments.map((a, index) => {
                   const currentStatus = getCurrentStatus(a);
-
+                  const latestRemark = a.history
+                    ?.filter(h =>
+                      h.action === "reassigned" || h.action === "reverted"
+                    )
+                    ?.slice(-1)[0];
                   return (
                     <tr
                       key={a.id}
@@ -387,7 +421,18 @@ export default function MyAssignments() {
                       <td className="py-3 px-4">{index + 1}</td>
                       <td className="py-3 px-4">{a.bookName}</td>
                       <td className="py-3 px-4">{a.chapterName}</td>
-
+                      <td className="py-3 px-4 text-center">
+                        {latestRemark ? (
+                          <button
+                            onClick={() => openRemarkModal(latestRemark)}
+                            className="text-xs px-3 py-1 rounded-md bg-red-600/20 border border-red-600 text-red-400 hover:bg-red-600/30 transition"
+                          >
+                            View Reason
+                          </button>
+                        ) : (
+                          <span className="text-gray-500 text-sm">-</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-center">
                         <span className="px-2 py-1 rounded text-xs bg-gray-700 text-white">
                           {getAssignmentType(a)}
@@ -456,7 +501,18 @@ export default function MyAssignments() {
                             </>
                           )}
 
-                          {currentStatus === 'Accepted' && (
+                           {currentStatus !== 'Assigned' &&
+      !(currentStatus === 'Accepted') && (
+        <span className="text-gray-400 text-sm">-</span>
+      )}
+      
+                          {currentStatus === 'Accepted' && isFinishBlocked(a) && (
+                            <span className="text-yellow-400 text-xs font-semibold">
+                              Waiting for Splitting to Finish
+                            </span>
+                          )}
+                          {currentStatus === 'Accepted' && !isFinishBlocked(a) && (
+
                             <button
                               onClick={() => handleComplete(a)}
                               className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center justify-center"
@@ -481,7 +537,7 @@ export default function MyAssignments() {
 
                           {parseInt(currentStatus) >= 3 && (
                             <span className="text-gray-400 text-sm">
-                              No Action
+                              -
                             </span>
                           )}
 
@@ -495,6 +551,39 @@ export default function MyAssignments() {
 
           </table>
         </div>
+
+        {remarkModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={closeRemarkModal}
+            />
+
+            {/* Modal */}
+            <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-[90%] max-w-md p-6 animate-fadeIn">
+
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-white font-semibold text-lg">
+                  🔴 Returned Reason
+                </h3>
+                <button
+                  onClick={closeRemarkModal}
+                  className="text-gray-400 hover:text-white text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-red-900/30 border border-red-700 p-4 rounded text-sm text-red-300 whitespace-pre-wrap">
+                {selectedRemark?.remark}
+              </div>
+
+
+            </div>
+          </div>
+        )}
 
         {showBookModal && bookDetails && (
           <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">

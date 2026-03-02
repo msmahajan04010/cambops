@@ -82,6 +82,7 @@ export default function UserMaster() {
                 lastName,
                 email,
                 phoneNumber,
+                userTypeId: Number(userType),
                 updatedAt: new Date(),
             }, { merge: true });
 

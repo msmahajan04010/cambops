@@ -17,6 +17,19 @@ export default function QCModule() {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [bookDetails, setBookDetails] = useState(null);
 
+   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
+    const [selectedRemark, setSelectedRemark] = useState(null);
+
+   const openRemarkModal = (remark) => {
+    setSelectedRemark(remark);
+    setRemarkModalOpen(true);
+  };
+
+  const closeRemarkModal = () => {
+    setRemarkModalOpen(false);
+    setSelectedRemark(null);
+  };
+
   const addHistory = async (assignmentId, action, extra = {}) => {
     await updateDoc(doc(db, "chapterAssignments", assignmentId), {
       history: arrayUnion({
@@ -233,6 +246,7 @@ export default function QCModule() {
                 <th className="py-3 px-4 text-left">Sr</th>
                 <th className="py-3 px-4 text-left">Book</th>
                 <th className="py-3 px-4 text-left">Chapter</th>
+                <th className="py-3 px-4 text-center">Remarks</th>
                 {/* <th className="py-3 px-4 text-left">User</th> */}
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-center">Action</th>
@@ -240,15 +254,38 @@ export default function QCModule() {
             </thead>
 
             <tbody>
-              {assignments.map((a, index) => (
-                <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/40 transition">
-                  <td className="py-3 px-3">{index + 1}</td>
-                  <td className="py-3 px-3">{a.bookName}</td>
-                  <td className="py-3 px-3">{a.chapterName}</td>
-                  {/* <td className="py-3 px-3">{a.userName}</td> */}
-                  <td className="py-3 px-3 text-center">{getStatusText(a.qc?.status)}</td>
+              {assignments.map((a, index) => {
+                const latestRemark = a.history
+                  ?.filter(h => h.action === "reverted")
+                  ?.slice(-1)[0];
 
-                  <td className="py-3 px-4 text-center">
+                return (
+                  <tr
+                    key={a.id}
+                    className="border-b border-gray-800 hover:bg-gray-800/40 transition"
+                  >
+                    <td className="py-3 px-3">{index + 1}</td>
+                    <td className="py-3 px-3">{a.bookName}</td>
+                    <td className="py-3 px-3">{a.chapterName}</td>
+
+                   <td className="py-3 px-4 text-center">
+  {latestRemark ? (
+    <button
+      onClick={() => openRemarkModal(latestRemark)}
+      className="text-xs px-3 py-1 rounded-md bg-red-600/20 border border-red-600 text-red-400 hover:bg-red-600/30 transition"
+    >
+      View Reason
+    </button>
+  ) : (
+    <span className="text-gray-500 text-sm">-</span>
+  )}
+</td>
+
+                    <td className="py-3 px-3 text-center">
+                      {getStatusText(a.qc?.status)}
+                    </td>
+
+                      <td className="py-3 px-4 text-center">
                     <div className="flex justify-center gap-2">
                       {a.qc?.status === 1 && (
                         <>
@@ -369,13 +406,53 @@ export default function QCModule() {
                           QC APPROVED
                         </span>
                       )}
+
+                         {a.qc?.status > 3 && (
+                        <span className="text-green-400 text-sm">
+                          -
+                        </span>
+                      )}
                     </div>
                   </td>
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+  {remarkModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={closeRemarkModal}
+            />
+
+            {/* Modal */}
+            <div className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl w-[90%] max-w-md p-6 animate-fadeIn">
+
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-white font-semibold text-lg">
+                  🔴 Returned Reason
+                </h3>
+                <button
+                  onClick={closeRemarkModal}
+                  className="text-gray-400 hover:text-white text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="bg-red-900/30 border border-red-700 p-4 rounded text-sm text-red-300 whitespace-pre-wrap">
+                {selectedRemark?.remark}
+              </div>
+
+
+            </div>
+          </div>
+        )}
 
 
         {showBookModal && bookDetails && (
