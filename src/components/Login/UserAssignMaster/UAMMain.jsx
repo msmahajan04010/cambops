@@ -93,7 +93,8 @@ export default function UserEntryScreen() {
     { id: 2, label: "Splitting", icon: "✂️" },
     { id: 3, label: "Recording", icon: "🎙️" },
     { id: 4, label: "QC", icon: "✅" },
-    { id: 5, label: "Recording & Splitting", icon: "🔄" }
+    { id: 5, label: "Recording & Splitting", icon: "🔄" },
+    { id: 6, label: "Correction", icon: "✔️" }
 
   ];
 
@@ -101,8 +102,10 @@ export default function UserEntryScreen() {
     const book = books.find(b => b.id === selectedBook);
     return book?.chapters || [];
   };
+
+  console.log("users", users)
   const filteredUsers = users.filter(
-    user => user.status === "Active"
+    user => user.status === "Active" && user.userTypeId != 1
   );
 
   const handleSave = async () => {
@@ -133,7 +136,7 @@ export default function UserEntryScreen() {
             bookName: book.bookName,
             chapterNumber: chapter.chapterNumber,
             chapterName: chapter.chapterName,
-
+            correction: null,
             recording: null,
             splitting: null,
             qc: null,
@@ -161,7 +164,7 @@ export default function UserEntryScreen() {
         if (type === 3) {
           if (isLocked(currentData.recording)) {
             toast.error(`Recording already active for Chapter ${chapter.chapterNumber}`);
-           return
+            return
           }
         }
 
@@ -169,7 +172,7 @@ export default function UserEntryScreen() {
         if (type === 2) {
           if (isLocked(currentData.splitting)) {
             toast.error(`Splitting already active for Chapter ${chapter.chapterNumber}`);
-           return;
+            return;
           }
         }
 
@@ -182,7 +185,14 @@ export default function UserEntryScreen() {
 
           if (isLocked(currentData.qc)) {
             toast.error(`QC already active for Chapter ${chapter.chapterNumber}`);
-           return;
+            return;
+          }
+        }
+
+        if (type === 6) {
+          if (isLocked(currentData.correction)) {
+            toast.error(`Correction already active for Chapter ${chapter.chapterNumber}`);
+            return;
           }
         }
 
@@ -190,7 +200,7 @@ export default function UserEntryScreen() {
         if (type === 5) {
           if (isLocked(currentData.recording)) {
             toast.error(`Recording already active for Chapter ${chapter.chapterNumber}`);
-           return;
+            return;
           }
 
           if (isLocked(currentData.splitting)) {
@@ -298,12 +308,48 @@ export default function UserEntryScreen() {
           );
         }
 
+
+        // Correction
+        if (type === 6) {
+          updatePayload.correction = {
+            userId: selectedUser,
+            status: 1,
+            assignedAt: new Date()
+          };
+
+          historyEntries.push({
+            stage: "correction",
+            action: "assigned",
+            userId: selectedUser,
+            assignedBy: userId,
+            role: "admin",
+            timestamp: new Date()
+          });
+        }
+
         await updateDoc(docRef, {
           ...updatePayload,
           history: arrayUnion(...historyEntries)
         });
       }
 
+      const user = users.find(u => u.id === selectedUser);
+
+      const chapterNames = selectedChapters
+        .map(num => {
+          const ch = book.chapters.find(c => c.chapterNumber === num);
+          return ch?.chapterName;
+        })
+        .join(", ");
+
+      await sendAssignmentMail({
+        email: user.email,
+        userName: user.firstName,
+        bookName: book.bookName,
+        chapterName: chapterNames,
+        task: types.find(t => t.id === Number(selectedType))?.label
+      });
+      
       toast.success("Chapters assigned successfully.");
       handleCancel();
 
@@ -362,6 +408,14 @@ export default function UserEntryScreen() {
       );
     }
 
+
+    if (Number(selectedType) === 6) {
+      return (
+        assignment.correction?.userId &&
+        assignment.correction?.status !== 8
+      );
+    }
+
     return false;
   };
 
@@ -391,10 +445,83 @@ export default function UserEntryScreen() {
 
   const chapters = getChapters();
 
-  
+  const API_KEY = import.meta.env.VITE_BREVO_API_KEY
+
+  const sendAssignmentMail = async (data) => {
+    try {
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": API_KEY
+        },
+        body: JSON.stringify({
+          sender: {
+            email: "mayurasmahajan@gmail.com",
+            name: "Phoenix Verse"
+          },
+          to: [
+            {
+              email: data.email,
+              name: data.userName
+            }
+          ],
+          subject: "New Chapter Assignment",
+          htmlContent: `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+    <p>Dear ${data.userName},</p>
+
+    <p>I hope this message finds you well. We are writing to inform you that a new chapter has been assigned to you. Please find the details of your assignment below:</p>
+
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold; width: 30%;">Book:</td>
+        <td style="padding: 8px 12px;">${data.bookName}</td>
+      </tr>
+      <tr style="background-color: #f5f5f5;">
+        <td style="padding: 8px 12px; font-weight: bold;">Chapter:</td>
+        <td style="padding: 8px 12px;">${data.chapterName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold;">Task:</td>
+        <td style="padding: 8px 12px;">${data.task}</td>
+      </tr>
+    </table>
+
+    <p>To begin working on your assignment, please log in to the platform using the link below:</p>
+
+    <p style="text-align: center; margin: 24px 0;">
+      <a href="https://cambops.vercel.app/"
+         style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+        Log In to PhoenixVerse
+      </a>
+    </p>
+
+    <p>If the button above does not work, copy and paste the following URL into your browser:</p>
+    <p style="color: #2563eb;">https://cambops.vercel.app/</p>
+
+    <p>Should you have any questions or require assistance, please do not hesitate to reach out to us.</p>
+
+    <p>
+      Warm regards,<br/>
+      <strong>The PhoenixVerse Team</strong>
+    </p>
+  </div>
+`
+        })
+      });
+
+      const result = await response.json();
+      console.log("Email result:", result);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return (
-       <Layout title="User Assign Master" subtitle="Assign chapters to users for processing">
+      <Layout title="User Assign Master" subtitle="Assign chapters to users for processing">
         <div className="flex items-center justify-center h-[70vh]">
           <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
         </div>
@@ -516,11 +643,12 @@ export default function UserEntryScreen() {
                 ) : selectedUserObj.userTypeId === 5 ? (
                   // ✅ UserType 5 → show multiple options
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[2, 3, 5].map((typeId) => {
+                    {[2, 3, 5, 6].map((typeId) => {
                       const typeMap = {
                         2: { label: "Splitting", icon: "✂️" },
                         3: { label: "Recording", icon: "🎙️" },
-                        5: { label: "Recording & Splitting", icon: "🔄" }
+                        5: { label: "Recording & Splitting", icon: "🔄" },
+                        6: { label: "Correction", icon: "✅" }
                       };
 
                       const type = typeMap[typeId];
@@ -550,6 +678,7 @@ export default function UserEntryScreen() {
                     {selectedUserObj.userTypeId === 2 && "✂️ Splitting"}
                     {selectedUserObj.userTypeId === 3 && "🎙️ Recording"}
                     {selectedUserObj.userTypeId === 4 && "✅ QC"}
+                    {selectedUserObj.userTypeId === 6 && "✅ Correction"}
                   </div>
                 )}
               </div>

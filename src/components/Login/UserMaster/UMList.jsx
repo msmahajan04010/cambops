@@ -14,6 +14,7 @@ export default function UserList() {
 
  const [showPasswordModal, setShowPasswordModal] = useState(false);
 const [newPassword, setNewPassword] = useState("");
+const API_KEY = import.meta.env.VITE_BREVO_API_KEY;
 
   const generateRandomPassword = (length = 8) => {
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
@@ -30,10 +31,19 @@ const handleResetPassword = async (userId) => {
   try {
     const randomPassword = generateRandomPassword(8);
 
+    const user = userList.find(u => u.id === userId);
+
     await updateDoc(doc(db, "users", userId), {
       password: randomPassword,
       ischangepwd: 0,
       updatedAt: new Date()
+    });
+
+    // send email
+    await sendResetPasswordMail({
+      email: user.email,
+      firstName: user.firstName,
+      password: randomPassword
     });
 
     setNewPassword(randomPassword);
@@ -41,6 +51,51 @@ const handleResetPassword = async (userId) => {
 
   } catch (error) {
     console.error("Error resetting password:", error);
+  }
+};
+
+
+const sendResetPasswordMail = async ({ email, firstName, password }) => {
+  try {
+    await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": API_KEY
+      },
+      body: JSON.stringify({
+        sender: {
+          name: "Workflow System",
+          email: "mayurasmahajan@gmail.com"
+        },
+        to: [
+          {
+            email: email,
+            name: firstName
+          }
+        ],
+        subject: "Your Password Has Been Reset",
+        htmlContent: `
+        <div style="font-family:Arial;padding:20px">
+          <h2>Password Reset</h2>
+
+          <p>Hello <b>${firstName}</b>,</p>
+
+          <p>Your password has been reset by the administrator.</p>
+
+          <p><b>UserName :</b> ${firstName}</p>
+          <p><b>Temporary Password:</b> ${password}</p>
+
+          <p>Please login and change your password immediately.</p>
+
+          <br/>
+          <p>Regards,<br/>Admin</p>
+        </div>
+        `
+      })
+    });
+  } catch (error) {
+    console.error("Password reset mail error:", error);
   }
 };
 

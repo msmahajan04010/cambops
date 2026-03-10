@@ -4,7 +4,7 @@ import { collection, getDocs, query, where, doc, updateDoc } from "firebase/fire
 import { db } from "../../firebase";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
-import Logo from "../../assets/Logo.png"
+import Logo from "../../assets/verse_logo.jpg"
 
 
 export default function Login() {
@@ -117,6 +117,7 @@ const handlePasswordChange = async () => {
   };
 
   return (
+    <> 
     <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated background elements */}
 
@@ -134,11 +135,11 @@ const handlePasswordChange = async () => {
 ">
         {/* Logo/Brand Section */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl mb-4 transform hover:rotate-6 transition-transform duration-300">
+          <div className="inline-flex items-center justify-center w-40 h-40 bg-white rounded-2xl mb-4 transform hover:rotate-6 transition-transform duration-300">
             <img
               src={Logo}
-              alt="CambOps Logo"
-              className="w-25 h-25 object-contain"
+              alt="Phoenix Logo"
+              className="w-45 h-45 object-contain"
             />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">LOGIN</h1>
@@ -272,5 +273,9 @@ const handlePasswordChange = async () => {
 
       </div>
     </div>
+<div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-gray-500 text-xs">
+   1.0.0.0
+</div>
+</>
   );
 }

@@ -16,6 +16,33 @@ export default function MyAssignments() {
 
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
   const [selectedRemark, setSelectedRemark] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+  const [users, setUsers] = useState([]);
+
+  const indexOfLast = currentPage * rowsPerPage;
+  const indexOfFirst = indexOfLast - rowsPerPage;
+
+  const currentAssignments = assignments.slice(indexOfFirst, indexOfLast);
+
+  const totalPages = Math.ceil(assignments.length / rowsPerPage);
+
+
+  const fetchUsers = async () => {
+  const snap = await getDocs(collection(db, "users"));
+
+  const list = snap.docs.map(d => ({
+    id: d.id,
+    ...d.data()
+  }));
+
+  setUsers(list);
+};
+
+
+useEffect(() => {
+  fetchUsers();
+}, []);
 
   const openRemarkModal = (remark) => {
     setSelectedRemark(remark);
@@ -41,6 +68,16 @@ export default function MyAssignments() {
     const isRecordingUser = assignment.recording?.userId === userId;
     const splittingDone = assignment.splitting?.status === 3;
 
+    const isCorrectionUser = assignment.correction?.userId === userId;
+const qcDone = assignment.qc?.status === 3;
+
+if (isCorrectionUser && !qcDone) {
+  return true;
+}
+
+
+
+
     if (role === 5) return false; // Recording + Splitting user allowed
 
     if (isRecordingUser && !splittingDone) {
@@ -49,6 +86,122 @@ export default function MyAssignments() {
 
     return false;
   };
+
+
+   const API_KEY = import.meta.env.VITE_BREVO_API_KEY
+
+const notifyAdmin = async ({ action, bookName, chapterName, userName, remark, type }) => {
+  try {
+
+    const admins = users.filter(u => u.userTypeId === 1);
+
+    for (const admin of admins) {
+
+      const remarkRow =
+        action === "DECLINED" && remark
+          ? `
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold;">Remark:</td>
+        <td style="padding: 8px 12px;">${remark}</td>
+      </tr>
+      `
+          : "";
+
+      await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": API_KEY
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "Phoenix Verse",
+            email: "mayurasmahajan@gmail.com"
+          },
+          to: [
+            {
+              email: admin.email,
+              name: admin.firstName
+            }
+          ],
+          subject: `User ${action} Chapter`,
+          htmlContent: `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+    <p>Dear Team,</p>
+
+    <p>This is to inform you that a user activity has been recorded on the platform. Please find the details of the action below:</p>
+
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold; width: 30%;">User:</td>
+        <td style="padding: 8px 12px;">${userName}</td>
+      </tr>
+      <tr style="background-color: #f5f5f5;">
+        <td style="padding: 8px 12px; font-weight: bold;">Action:</td>
+        <td style="padding: 8px 12px;">${action}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold;">Book:</td>
+        <td style="padding: 8px 12px;">${bookName}</td>
+      </tr>
+      <tr>
+  <td style="padding: 8px 12px; font-weight: bold;">Work Type:</td>
+  <td style="padding: 8px 12px;">${type}</td>
+</tr>
+      <tr style="background-color: #f5f5f5;">
+        <td style="padding: 8px 12px; font-weight: bold;">Chapter:</td>
+        <td style="padding: 8px 12px;">${chapterName}</td>
+      </tr>
+
+      ${remarkRow}
+
+    </table>
+
+    <p>To review this activity, please log in to the platform using the link below:</p>
+
+    <p style="text-align: center; margin: 24px 0;">
+      <a href="https://cambops.vercel.app/"
+         style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+        Log In to PhoenixVerse
+      </a>
+    </p>
+
+    <p>If the button above does not work, copy and paste the following URL into your browser:</p>
+    <p style="color: #2563eb;">https://cambops.vercel.app/</p>
+
+    <p>
+      Warm regards,<br/>
+      <strong>The PhoenixVerse Team</strong>
+    </p>
+  </div>
+`
+        })
+      });
+
+    }
+
+  } catch (error) {
+    console.error("Admin mail error:", error);
+  }
+};
+
+const getCurrentUserName = () => {
+  const user = users.find(u => u.userId === userId || u.id === userId);
+  return user ? `${user.firstName} ${user.lastName}` : "User";
+};
+
+
+  const isAcceptBlocked = (assignment) => {
+  const role = parseInt(userTypeId);
+
+  if (role === 6) {
+    const qcDone = assignment.qc?.status === 3;
+    return !qcDone;
+  }
+
+  return false;
+};
+
 
   const addHistory = async (assignmentId, stage, action, extra = {}) => {
     await updateDoc(doc(db, "chapterAssignments", assignmentId), {
@@ -97,10 +250,15 @@ export default function MyAssignments() {
         );
       }
 
+      if (role === 6) {
+  return a.correction?.userId === uid;
+}
+
       return false;
     });
 
     setAssignments(filtered);
+    setCurrentPage(1);
   };
 
   const handleAcceptClick = async (assignment) => {
@@ -181,10 +339,30 @@ export default function MyAssignments() {
       });
     }
 
+    if (selectedAssignment.correction?.userId === userId) {
+  updatePayload["correction.status"] = 2;
+
+  historyEntries.push({
+    stage: "correction",
+    action: "accepted",
+    userId: userId,
+    role: userTypeId,
+    timestamp: new Date()
+  });
+}
+
     await updateDoc(doc(db, "chapterAssignments", selectedAssignment.id), {
       ...updatePayload,
       history: arrayUnion(...historyEntries)
     });
+
+    await notifyAdmin({
+  action: "ACCEPTED",
+  bookName: selectedAssignment.bookName,
+  chapterName: selectedAssignment.chapterName,
+  userName: getCurrentUserName(),
+   type: getAssignmentType(selectedAssignment)
+});
 
     toast.success("Chapter accepted successfully.");
 
@@ -236,10 +414,31 @@ export default function MyAssignments() {
       });
     }
 
+    if (a.correction?.userId === userId) {
+  updatePayload["correction.status"] = 3;
+
+  historyEntries.push({
+    stage: "correction",
+    action: "completed",
+    userId: userId,
+    role: userTypeId,
+    timestamp: new Date()
+  });
+}
+
     await updateDoc(doc(db, "chapterAssignments", a.id), {
       ...updatePayload,
       history: arrayUnion(...historyEntries)
     });
+
+
+    await notifyAdmin({
+  action: "COMPLETED",
+  bookName: a.bookName,
+  chapterName: a.chapterName,
+  userName: getCurrentUserName(),
+  type: getAssignmentType(a)
+});
 
     toast.success("Chapter completed successfully.");
     fetchAssignments();
@@ -296,12 +495,36 @@ export default function MyAssignments() {
       });
     }
 
+
+    if (selectedAssignment.correction?.userId === userId) {
+  updatePayload["correction.status"] = 8;
+
+  historyEntries.push({
+    stage: "correction",
+    action: "declined",
+    userId: userId,
+    role: userTypeId,
+    remark: remark,
+    timestamp: new Date()
+  });
+}
+
     updatePayload["userRemark"] = remark;
 
     await updateDoc(doc(db, "chapterAssignments", selectedAssignment.id), {
       ...updatePayload,
       history: arrayUnion(...historyEntries)
     });
+
+
+    await notifyAdmin({
+  action: "DECLINED",
+  bookName: selectedAssignment.bookName,
+  chapterName: selectedAssignment.chapterName,
+  userName: getCurrentUserName(),
+  remark:remark,
+   type: getAssignmentType(selectedAssignment)
+});
 
     toast.success("Chapter declined successfully.");
 
@@ -338,6 +561,10 @@ export default function MyAssignments() {
       return getStatusText(assignment.qc?.status);
     }
 
+    if (assignment.correction?.userId === userId) {
+  return getStatusText(assignment.correction?.status);
+}
+
     return "-";
   };
 
@@ -345,12 +572,13 @@ export default function MyAssignments() {
     const isRec = assignment.recording?.userId === userId;
     const isSplit = assignment.splitting?.userId === userId;
     const isQc = assignment.qc?.userId === userId;
+    const isCorrection = assignment.correction?.userId === userId;
 
     if (isRec && isSplit) return "Recording & Splitting";
     if (isRec) return "Recording";
     if (isSplit) return "Splitting";
     if (isQc) return "QC";
-
+if (isCorrection) return "Correction";
     return "-";
   };
 
@@ -406,19 +634,30 @@ export default function MyAssignments() {
                   </td>
                 </tr>
               ) : (
-                assignments.map((a, index) => {
+                currentAssignments.map((a, index) => {
                   const currentStatus = getCurrentStatus(a);
-                  const latestRemark = a.history
-                    ?.filter(h =>
-                      h.action === "reassigned" || h.action === "reverted"
-                    )
-                    ?.slice(-1)[0];
+               let latestRemark = null;
+
+const isRec = a.recording?.userId === userId;
+const isSplit = a.splitting?.userId === userId;
+const isQc = a.qc?.userId === userId;
+const isCorrection = a.correction?.userId === userId;
+
+// Recording / Splitting / Correction users → show userRemark
+if ((isRec || isSplit || isCorrection) && a.userRemark) {
+  latestRemark = { remark: a.userRemark };
+}
+
+// QC user → show qcRemark
+if (isQc && a.qcRemark) {
+  latestRemark = { remark: a.qcRemark };
+}
                   return (
                     <tr
                       key={a.id}
                       className="border-b border-gray-800 hover:bg-gray-800/40 transition"
                     >
-                      <td className="py-3 px-4">{index + 1}</td>
+                      <td className="py-3 px-4">{indexOfFirst + index + 1}</td>
                       <td className="py-3 px-4">{a.bookName}</td>
                       <td className="py-3 px-4">{a.chapterName}</td>
                       <td className="py-3 px-4 text-center">
@@ -452,7 +691,7 @@ export default function MyAssignments() {
                       <td className="py-3 px-4 text-center">
                         <div className="flex justify-center gap-2">
 
-                          {currentStatus === 'Assigned' && (
+                         {currentStatus === 'Assigned' && !isAcceptBlocked(a) && (
                             <>
                               {/* ACCEPT BUTTON */}
                               <button
@@ -501,11 +740,17 @@ export default function MyAssignments() {
                             </>
                           )}
 
-                           {currentStatus !== 'Assigned' &&
-      !(currentStatus === 'Accepted') && (
-        <span className="text-gray-400 text-sm">-</span>
-      )}
-      
+                          {currentStatus === 'Assigned' && isAcceptBlocked(a) && (
+  <span className="text-yellow-400 text-xs font-semibold">
+    Waiting for QC to Finish
+  </span>
+)}
+
+                          {currentStatus !== 'Assigned' &&
+                            !(currentStatus === 'Accepted') && (
+                              <span className="text-gray-400 text-sm">-</span>
+                            )}
+
                           {currentStatus === 'Accepted' && isFinishBlocked(a) && (
                             <span className="text-yellow-400 text-xs font-semibold">
                               Waiting for Splitting to Finish
@@ -551,6 +796,49 @@ export default function MyAssignments() {
 
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-800">
+
+            <p className="text-gray-400 text-sm">
+              Showing {indexOfFirst + 1} -{" "}
+              {Math.min(indexOfLast, assignments.length)} of {assignments.length}
+            </p>
+
+            <div className="flex items-center gap-2">
+
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+                className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition"
+              >
+                Previous
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-2 rounded-lg ${currentPage === i + 1
+                      ? "bg-white text-black font-semibold"
+                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                className="px-4 py-2 bg-gray-800 text-gray-300 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-700 transition"
+              >
+                Next
+              </button>
+
+            </div>
+          </div>
+        )}
 
         {remarkModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">

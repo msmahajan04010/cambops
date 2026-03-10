@@ -10,6 +10,7 @@ export default function ConfigMaster() {
   const [splittingAmount, setSplittingAmount] = useState("");
   const [qcAmount, setqcAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [CorrectionAmount, setCorrectionAmount] = useState("");
 
   useEffect(() => {
     loadConfig();
@@ -24,7 +25,8 @@ export default function ConfigMaster() {
         const data = snap.data();
         setRecordingAmount(data.recordingAmount || "");
         setSplittingAmount(data.splittingAmount || "");
-        setqcAmount(data.qcAmount || "")
+        setqcAmount(data.qcAmount || "");
+        setCorrectionAmount(data.CorrectionAmount || "");
       }
       setLoading(false);
     } catch (error) {
@@ -34,7 +36,7 @@ export default function ConfigMaster() {
   };
 
   const handleSave = async () => {
-    if (!recordingAmount || !splittingAmount || !qcAmount) {
+    if (!recordingAmount || !splittingAmount || !qcAmount || !CorrectionAmount) {
       toast.error("Please fill all the required fields.");
       return;
     }
@@ -45,6 +47,7 @@ export default function ConfigMaster() {
         recordingAmount: Number(recordingAmount),
         splittingAmount: Number(splittingAmount),
         qcAmount: Number(qcAmount),
+        CorrectionAmount: Number(CorrectionAmount),
         updatedAt: new Date(),
       });
 
@@ -71,7 +74,7 @@ export default function ConfigMaster() {
       </Layout>
     );
   }
-  
+
   return (
     <Layout title="Config Master" subtitle="Manage system rates">
       <div className="max-w-xl mx-auto bg-gray-900 p-8 rounded-xl text-white">
@@ -104,6 +107,16 @@ export default function ConfigMaster() {
               type="number"
               value={qcAmount}
               onChange={(e) => setqcAmount(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-800 rounded-xl border border-gray-700"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-2">Correction Amount</label>
+            <input
+              type="number"
+              value={CorrectionAmount}
+              onChange={(e) => setCorrectionAmount(e.target.value)}
               className="w-full px-4 py-3 bg-gray-800 rounded-xl border border-gray-700"
             />
           </div>

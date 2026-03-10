@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../Layout/AdminLayout';
-import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc,query, where,getDocs  } from "firebase/firestore";
 import { db } from '../../../firebase';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from "react-hot-toast";
@@ -19,6 +19,7 @@ export default function UserMaster() {
     const location = useLocation();
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [generatedPassword, setGeneratedPassword] = useState("");
+    const API_KEY = import.meta.env.VITE_BREVO_API_KEY;
 
     useEffect(() => {
         if (location.state?.user) {
@@ -40,6 +41,7 @@ export default function UserMaster() {
         { label: "Recording", value: 3 },
         { label: "QC", value: 4 },
         { label: "Recording & Splitting", value: 5 }, // Better professional name
+        { label: "Correction", value: 6 }, // Better professional name
     ];
 
 
@@ -52,6 +54,50 @@ export default function UserMaster() {
         return password;
     };
 
+
+    const sendUserCreationMail = async ({ email, firstName, password }) => {
+        try {
+            await fetch("https://api.brevo.com/v3/smtp/email", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-key": API_KEY
+                },
+                body: JSON.stringify({
+                    sender: {
+                        name: "Phoenix Verse",
+                        email: "mayurasmahajan@gmail.com"
+                    },
+                    to: [
+                        {
+                            email: email,
+                            name: firstName
+                        }
+                    ],
+                    subject: "Your Account Has Been Created",
+                    htmlContent: `
+        <div style="font-family:Arial;padding:20px">
+          <h2>Welcome to PhoenixVerse Studio</h2>
+
+          <p>Hello <b>${firstName}</b>,</p>
+
+          <p>Your account has been created successfully.</p>
+
+          <p><b>UserName :</b> ${firstName}</p>
+          <p><b>Temporary Password : </b> ${password}</p>
+
+          <p>Please login and change your password after first login.</p>
+
+          <br/>
+          <p>Regards,<br/>PhoenixVerse</p>
+        </div>
+        `
+                })
+            });
+        } catch (error) {
+            console.error("User mail error:", error);
+        }
+    };
 
     const validateEmail = (email) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -89,6 +135,31 @@ export default function UserMaster() {
             toast.success(`User : ${firstName} ${lastName} updated successfully.`);
         } else {
 
+            const usersRef = collection(db, "users");
+
+// Block reserved name
+if (firstName.trim().toLowerCase() === "admin") {
+  toast.error("First Name 'Admin' is reserved and cannot be used.");
+  return;
+}
+
+const nameQuery = query(
+  usersRef,
+  where("firstName", "==", firstName.trim()),
+  where("lastName", "==", lastName.trim())
+);
+
+const nameSnap = await getDocs(nameQuery);
+
+if (!nameSnap.empty) {
+  const existingUser = nameSnap.docs[0];
+
+  // If creating new OR editing but it's a different record
+  if (!editingUser || existingUser.id !== editingUser.id) {
+    toast.error("User with same First Name and Last Name already exists.");
+    return;
+  }
+}
             const userDoc = doc(collection(db, "users"));
             const userId = userDoc.id;
             const randomPassword = generateRandomPassword(8);
@@ -107,6 +178,13 @@ export default function UserMaster() {
             };
 
             const docRef = await addDoc(collection(db, "users"), newUser);
+
+            await sendUserCreationMail({
+                email: email,
+                firstName: firstName,
+                password: randomPassword
+            });
+
 
             setGeneratedPassword(randomPassword);
             setShowPasswordModal(true);

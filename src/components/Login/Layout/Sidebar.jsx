@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Cookies from "js-cookie";
-import logo from "../../../assets/Logo2.png";
+import logo from "../../../assets/verse_logo_1.png";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const navigate = useNavigate();
@@ -26,15 +26,19 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   }, [sidebarOpen]);
 
   const handleLogout = () => {
-    navigate('/');
-  };
+  document.cookie = "userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  document.cookie = "userName=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  document.cookie = "userTypeId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+  navigate('/');
+};
 
   const menuItems = [
     {
       id: 'dashboard',
       name: 'Dashboard',
       path: '/DB',
-      roles: [0, 1, 2, 3, 4, 5,100],
+      roles: [0, 1, 2, 3, 4, 5,100,6],
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -78,7 +82,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     {
       id: 'assign',
       name: 'User Assign',
-      roles: [0, 1, 2, 3, 4, 5,100],
+      roles: [0, 1,100],
       path: '/UAM',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -90,7 +94,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       id: 'myassign',
       name: 'My Assignments',
       path: '/MyAM',
-      roles: [2, 3, 5],
+      roles: [2, 3, 5,6],
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -123,7 +127,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     {
       id: 'transaction',
       name: 'Transaction',
-      roles: [0, 1, 2, 3, 4, 5,100],
+      roles: [0, 1,100],
       path: '/TM',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,11 +145,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       {/* Logo */}
       <div className="p-2 border-b border-gray-800">
         <div className="flex items-center gap-3">
-<div className="w-25 h-20  rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+<div className="w-50 h-30  rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
   <img 
     src={logo} 
-    alt="CambOps Logo" 
-    className="w-25 h-25 object-contain"
+    alt="Phoenix Logo" 
+    className="w-40 h-40 object-contain"
   />
 </div>
          

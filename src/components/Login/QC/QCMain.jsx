@@ -17,10 +17,12 @@ export default function QCModule() {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [bookDetails, setBookDetails] = useState(null);
 
-   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
-    const [selectedRemark, setSelectedRemark] = useState(null);
+  const [remarkModalOpen, setRemarkModalOpen] = useState(false);
+  const [selectedRemark, setSelectedRemark] = useState(null);
+const [users, setUsers] = useState([]);
+ const API_KEY = import.meta.env.VITE_BREVO_API_KEY
 
-   const openRemarkModal = (remark) => {
+  const openRemarkModal = (remark) => {
     setSelectedRemark(remark);
     setRemarkModalOpen(true);
   };
@@ -42,6 +44,177 @@ export default function QCModule() {
       })
     });
   };
+
+  const fetchUsers = async () => {
+  const snap = await getDocs(collection(db, "users"));
+
+  const list = snap.docs.map(d => ({
+    id: d.id,
+    ...d.data()
+  }));
+
+  setUsers(list);
+};
+
+
+
+
+const notifyAdmin = async ({ action, bookName, chapterName }) => {
+  try {
+
+    const admins = users.filter(u => u.userTypeId === 1);
+
+    for (const admin of admins) {
+
+      await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": API_KEY
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "Phoenix Verse",
+            email: "mayurasmahajan@gmail.com"
+          },
+          to: [
+            {
+              email: admin.email,
+              name: admin.firstName
+            }
+          ],
+         subject: `QC ${action} Chapter`,
+htmlContent: `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+    <p>Dear Team,</p>
+
+    <p>This is to inform you that a Quality Control activity has been performed. Please review the details of the action taken below:</p>
+
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold; width: 30%;">Action:</td>
+        <td style="padding: 8px 12px;">${action}</td>
+      </tr>
+      <tr style="background-color: #f5f5f5;">
+        <td style="padding: 8px 12px; font-weight: bold;">Book:</td>
+        <td style="padding: 8px 12px;">${bookName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold;">Chapter:</td>
+        <td style="padding: 8px 12px;">${chapterName}</td>
+      </tr>
+    </table>
+
+    <p>To review the QC activity, please log in to the platform using the link below:</p>
+
+    <p style="text-align: center; margin: 24px 0;">
+      <a href="https://cambops.vercel.app/"
+         style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+        Log In to PhoenixVerse
+      </a>
+    </p>
+
+    <p>If the button above does not work, copy and paste the following URL into your browser:</p>
+    <p style="color: #2563eb;">https://cambops.vercel.app/</p>
+
+    <p>Should you have any questions or require further clarification, please do not hesitate to contact us.</p>
+
+    <p>
+      Warm regards,<br/>
+      <strong>The PhoenixVerse Team</strong>
+    </p>
+  </div>
+`
+        })
+      });
+
+    }
+
+  } catch (error) {
+    console.error("Admin mail error:", error);
+  }
+};
+
+const notifyAssignedUsers = async ({ action, assignment }) => {
+  try {
+
+    const roles = ["recording", "splitting"];
+
+    for (const role of roles) {
+
+      const uid = assignment[role]?.userId;
+
+      if (!uid) continue;
+
+      const user = users.find(u => u.id === uid);
+
+      if (!user) continue;
+
+      await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": API_KEY
+        },
+        body: JSON.stringify({
+          sender: {
+            name: "Phoenix Verse",
+            email: "mayurasmahajan@gmail.com"
+          },
+          to: [
+            {
+              email: user.email,
+              name: user.firstName
+            }
+          ],
+          subject: `Rework Required`,
+htmlContent: `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+    <p>Dear ${user.firstName},</p>
+
+    <p>We hope this message finds you well. We are writing to notify you that your submitted work has been reviewed by the Quality Control team and has been returned for rework. Please find the details below:</p>
+
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+      <tr>
+        <td style="padding: 8px 12px; font-weight: bold; width: 30%;">Book:</td>
+        <td style="padding: 8px 12px;">${assignment.bookName}</td>
+      </tr>
+      <tr style="background-color: #f5f5f5;">
+        <td style="padding: 8px 12px; font-weight: bold;">Chapter:</td>
+        <td style="padding: 8px 12px;">${assignment.chapterName}</td>
+      </tr>
+    </table>
+
+    <p>We kindly request that you log in at your earliest convenience to address the flagged issues and resubmit your work promptly.</p>
+
+    <p style="text-align: center; margin: 24px 0;">
+      <a href="https://cambops.vercel.app/"
+         style="background-color: #dc2626; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+        Log In to PhoenixVerse
+      </a>
+    </p>
+
+    <p>If the button above does not work, copy and paste the following URL into your browser:</p>
+    <p style="color: #2563eb;">https://cambops.vercel.app/</p>
+
+    <p>If you have any questions regarding the feedback or require clarification, please do not hesitate to reach out to us.</p>
+
+    <p>
+      Warm regards,<br/>
+      <strong>The PhoenixVerse Team</strong>
+    </p>
+  </div>
+`
+        })
+      });
+
+    }
+
+  } catch (error) {
+    console.error("User mail error:", error);
+  }
+};
+
 
 
   const isTeamCompleted = (assignment) => {
@@ -73,16 +246,16 @@ export default function QCModule() {
       id: d.id,
       ...d.data()
     }));
-
+console.log("data",data)
     setLoading(false);
 
     setAssignments(data);
   };
 
-  useEffect(() => {
-    fetchAssignments();
-  }, []);
-
+ useEffect(() => {
+  fetchAssignments();
+  fetchUsers();
+}, []);
 
 
   const handleAcceptClick = async (assignment) => {
@@ -117,6 +290,13 @@ export default function QCModule() {
 
     await addHistory(selectedAssignment.id, "accepted");
 
+    await notifyAdmin({
+      action: "ACCEPTED",
+      bookName: selectedAssignment.bookName,
+      chapterName: selectedAssignment.chapterName
+    });
+
+
     toast.success("QC Accepted successfully.");
 
 
@@ -127,7 +307,7 @@ export default function QCModule() {
     fetchAssignments();
   };
 
-  const handleFinish = async (id) => {
+  const handleFinish = async (id, a) => {
     setLoading(true);
     await updateDoc(doc(db, "chapterAssignments", id), {
       "qc.status": 3,
@@ -136,6 +316,13 @@ export default function QCModule() {
 
 
     await addHistory(id, "approved");
+
+    await notifyAdmin({
+      action: "APPROVED",
+      bookName: a.bookName,
+      chapterName: a.chapterName
+    });
+
 
     toast.success("QC Approved successfully.");
     setLoading(false);
@@ -161,6 +348,12 @@ export default function QCModule() {
       await addHistory(selectedId, "reassigned", {
         remark: remark
       });
+
+   await notifyAssignedUsers({
+  action: "REASSIGN",
+  assignment: selectedAssignment
+});
+
 
       toast.success("Chapter sent back for rework.");
 
@@ -210,7 +403,13 @@ export default function QCModule() {
         remark: remark
       });
 
-      toast.success("QC Declined successfully.");
+      await notifyAdmin({
+        action: "DECLINED",
+        bookName: selectedAssignment.bookName,
+        chapterName: selectedAssignment.chapterName
+      });
+
+      toast.success("QC declined successfully.");
 
       setRemark("");
       setSelectedId(null);
@@ -268,152 +467,152 @@ export default function QCModule() {
                     <td className="py-3 px-3">{a.bookName}</td>
                     <td className="py-3 px-3">{a.chapterName}</td>
 
-                   <td className="py-3 px-4 text-center">
-  {latestRemark ? (
-    <button
-      onClick={() => openRemarkModal(latestRemark)}
-      className="text-xs px-3 py-1 rounded-md bg-red-600/20 border border-red-600 text-red-400 hover:bg-red-600/30 transition"
-    >
-      View Reason
-    </button>
-  ) : (
-    <span className="text-gray-500 text-sm">-</span>
-  )}
-</td>
+                    <td className="py-3 px-4 text-center">
+                      {latestRemark ? (
+                        <button
+                          onClick={() => openRemarkModal(latestRemark)}
+                          className="text-xs px-3 py-1 rounded-md bg-red-600/20 border border-red-600 text-red-400 hover:bg-red-600/30 transition"
+                        >
+                          View Reason
+                        </button>
+                      ) : (
+                        <span className="text-gray-500 text-sm">-</span>
+                      )}
+                    </td>
 
                     <td className="py-3 px-3 text-center">
                       {getStatusText(a.qc?.status)}
                     </td>
 
-                      <td className="py-3 px-4 text-center">
-                    <div className="flex justify-center gap-2">
-                      {a.qc?.status === 1 && (
-                        <>
-                          {isTeamCompleted(a) ? (
-                            <>
-                              {/* ACCEPT */}
-                              <button
-                                onClick={() => handleAcceptClick(a)}
-                                className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition flex items-center justify-center"
-                                title="Accept"
-                              >
-                                <svg
-                                  className="w-5 h-5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                  strokeWidth={2}
+                    <td className="py-3 px-4 text-center">
+                      <div className="flex justify-center gap-2">
+                        {a.qc?.status === 1 && (
+                          <>
+                            {isTeamCompleted(a) ? (
+                              <>
+                                {/* ACCEPT */}
+                                <button
+                                  onClick={() => handleAcceptClick(a)}
+                                  className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition flex items-center justify-center"
+                                  title="Accept"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                              </button>
+                                  <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={2}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M5 13l4 4L19 7"
+                                    />
+                                  </svg>
+                                </button>
 
-                              {/* DECLINE */}
-                              <button
-                                onClick={() => {
-                                  setSelectedAssignment(a);
-                                  setSelectedId(a.id);
-                                  setRemarkType("decline");
-                                }}
-                                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center justify-center"
-                                title="Decline"
-                              >
-                                <svg
-                                  className="w-5 h-5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                  strokeWidth={2}
+                                {/* DECLINE */}
+                                <button
+                                  onClick={() => {
+                                    setSelectedAssignment(a);
+                                    setSelectedId(a.id);
+                                    setRemarkType("decline");
+                                  }}
+                                  className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center justify-center"
+                                  title="Decline"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M6 18L18 6M6 6l12 12"
-                                  />
-                                </svg>
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-yellow-400 text-xs">
-                              Waiting for Recording & Splitting completion
-                            </span>
-                          )}
-                        </>
-                      )}
-                      {a.qc?.status === 2 && (
-                        <>
-                          {/* FINISH */}
-                          <button
-                            onClick={() => handleFinish(a.id)}
-                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center justify-center"
-                            title="Finish QC"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              strokeWidth={2}
+                                  <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    strokeWidth={2}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-yellow-400 text-xs">
+                                Waiting for Recording & Splitting completion
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {a.qc?.status === 2 && (
+                          <>
+                            {/* FINISH */}
+                            <button
+                              onClick={() => handleFinish(a.id, a)}
+                              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center justify-center"
+                              title="Finish QC"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M9 12l2 2 4-4"
-                              />
-                              <circle cx="12" cy="12" r="9" />
-                            </svg>
-                          </button>
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M9 12l2 2 4-4"
+                                />
+                                <circle cx="12" cy="12" r="9" />
+                              </svg>
+                            </button>
 
-                          {/* REASSIGN */}
-                          <button
-                            onClick={() => {
-                              setSelectedAssignment(a);
-                              setSelectedId(a.id);
-                              setRemarkType("reassign");
-                            }}
-                            className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center justify-center"
-                            title="Reassign"
-                          >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              strokeWidth={2}
+                            {/* REASSIGN */}
+                            <button
+                              onClick={() => {
+                                setSelectedAssignment(a);
+                                setSelectedId(a.id);
+                                setRemarkType("reassign");
+                              }}
+                              className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center justify-center"
+                              title="Reassign"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4 4v6h6M20 20v-6h-6"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M20 14a8 8 0 00-14-4m-2 4a8 8 0 0014 4"
-                              />
-                            </svg>
-                          </button>
-                        </>
-                      )}
+                              <svg
+                                className="w-5 h-5"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M4 4v6h6M20 20v-6h-6"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M20 14a8 8 0 00-14-4m-2 4a8 8 0 0014 4"
+                                />
+                              </svg>
+                            </button>
+                          </>
+                        )}
 
 
-                      {a.qc?.status === 3 && (
-                        <span className="text-green-400 text-sm">
-                          QC APPROVED
-                        </span>
-                      )}
+                        {a.qc?.status === 3 && (
+                          <span className="text-green-400 text-sm">
+                            QC APPROVED
+                          </span>
+                        )}
 
-                         {a.qc?.status > 3 && (
-                        <span className="text-green-400 text-sm">
-                          -
-                        </span>
-                      )}
-                    </div>
-                  </td>
+                        {a.qc?.status > 3 && (
+                          <span className="text-green-400 text-sm">
+                            -
+                          </span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -421,7 +620,7 @@ export default function QCModule() {
           </table>
         </div>
 
-  {remarkModalOpen && (
+        {remarkModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
 
             {/* Backdrop */}

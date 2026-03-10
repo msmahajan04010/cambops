@@ -14,14 +14,14 @@ export default function BookList() {
 
 
     const languages = ['All Languages', 'English', 'Hindi', 'Gujarati'];
- const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
 
 
 
 
     const fetchBooks = async () => {
         try {
-              setLoading(true);
+            setLoading(true);
             const bookSnap = await getDocs(collection(db, "books"));
             const assignSnap = await getDocs(collection(db, "chapterAssignments"));
 
@@ -36,6 +36,12 @@ export default function BookList() {
                 const bookAssignments = assignments.filter(
                     a => a.bookId === docItem.id
                 );
+
+                let totalHours = 0;
+
+                bookAssignments.forEach(a => {
+                    totalHours += Number(a.hours || 0);
+                });
 
                 // Each assignment is already one chapter
                 const total = bookData.maxChapterLimit || 0;
@@ -89,18 +95,19 @@ export default function BookList() {
                     qcPercent,
                     deliveredPercent,
                     allDelivered,
+                    totalHours,
                     createdAt:
                         bookData.createdAt?.toDate()?.toLocaleString() || ""
                 };
             });
 
-           
+
 
             setBookList(books);
-             setLoading(false);
+            setLoading(false);
 
         } catch (error) {
-             setLoading(false);
+            setLoading(false);
             console.error("Error fetching books:", error);
         }
     };
@@ -113,16 +120,16 @@ export default function BookList() {
         if (!window.confirm("Mark this book as Delivered to Client?")) return;
 
         try {
-              setLoading(true);
+            setLoading(true);
             await updateDoc(doc(db, "books", id), {
                 bookStatus: 2
             });
             toast.success("Book Delivered to Client successfully.");
- setLoading(false);
+            setLoading(false);
             fetchBooks();
         } catch (error) {
             toast.error(`Error updating Book Delivery Status : ${error}`);
-             setLoading(false);
+            setLoading(false);
             console.error("Error updating book status:", error);
         }
     };
@@ -181,16 +188,16 @@ export default function BookList() {
         0
     );
 
-    
-  if (loading) {
-    return (
-      <Layout title="Book List" subtitle="View and manage all books in the system">
-        <div className="flex items-center justify-center h-[70vh]">
-          <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
-        </div>
-      </Layout>
-    );
-  }
+
+    if (loading) {
+        return (
+            <Layout title="Book List" subtitle="View and manage all books in the system">
+                <div className="flex items-center justify-center h-[70vh]">
+                    <div className="w-12 h-12 border-4 border-gray-700 border-t-white rounded-full animate-spin"></div>
+                </div>
+            </Layout>
+        );
+    }
 
     return (
         <Layout title="Book List" subtitle="View and manage all books in the system">
@@ -332,11 +339,11 @@ export default function BookList() {
                                                     <button
                                                         onClick={() => handleStatusToggle(book.id, book.status)}
                                                         className={`text-xs px-2 py-1 rounded font-medium transition-all ${book.status === 1
-                                                                ? 'bg-green-600 text-white hover:bg-green-700'
-                                                                : 'bg-red-600 text-white hover:bg-red-700'
+                                                            ? 'bg-green-600 text-white hover:bg-green-700'
+                                                            : 'bg-red-600 text-white hover:bg-red-700'
                                                             }`}
                                                     >
-                                                     {book.status === 1 ? "Active" : "Inactive"}
+                                                        {book.status === 1 ? "Active" : "Inactive"}
                                                     </button>
                                                 )}
                                                 {book.allDelivered && book.bookStatus !== 2 && (
@@ -354,24 +361,54 @@ export default function BookList() {
 
                                     {/* Book Details */}
                                     <div className="space-y-3 mb-4">
+
+
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-400">Total Chapters :</span>
-                                            <span className="text-white font-semibold">{book.maxChapterLimit}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-400">Assigned :</span>
-                                            <span className="text-white font-semibold">{book.assignedCount || 0}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-400">Completion:</span>
+                                            <span className="text-gray-400">% :</span>
                                             <span className="text-white font-semibold">
-                                                {book.chapters?.slice(0, 8).map((ch) => (
-                                                    <span key={ch.chapterNumber} className="bg-white text-black text-xs px-2 py-1 rounded font-medium">
-                                                        {ch.chapterNumber}
-                                                    </span>
-                                                ))}
+                                                {book.deliveredPercent.toFixed(0)}%
                                             </span>
                                         </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-400">Progress :</span>
+                                            <span className="text-white font-semibold">
+                                                {book.deliveredCount} / {book.maxChapterLimit}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-3 mb-4">
+
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-400">Total Chapters :</span>
+                                                <span className="text-white font-semibold">{book.maxChapterLimit}</span>
+                                            </div>
+
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-400">Assigned :</span>
+                                                <span className="text-blue-400 font-semibold">{book.assignedCount}</span>
+                                            </div>
+
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-400">Under QC :</span>
+                                                <span className="text-yellow-400 font-semibold">{book.qcCount}</span>
+                                            </div>
+
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-400">Delivered :</span>
+                                                <span className="text-green-400 font-semibold">{book.deliveredCount}</span>
+                                            </div>
+
+
+
+                                        </div>
+                                        {book.bookStatus === 2 && (
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-400">Total Book Hours :</span>
+                                                <span className="text-white font-semibold">
+                                                    {book.totalHours?.toFixed(2)} hrs
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Progress Bar */}
@@ -414,7 +451,7 @@ export default function BookList() {
                                     </div>
 
                                     {/* Chapter Preview */}
-                                   
+
 
                                     {/* Footer */}
                                     <div className="flex items-center justify-between pt-4 border-t border-gray-700">
@@ -424,8 +461,8 @@ export default function BookList() {
                                                 disabled={book.bookStatus === 2}
                                                 onClick={() => handleEdit(book)}
                                                 className={`p-2 rounded-lg transition-colors ${book.bookStatus === 2
-                                                        ? "text-gray-600 cursor-not-allowed"
-                                                        : "text-gray-400 hover:text-white hover:bg-gray-700"
+                                                    ? "text-gray-600 cursor-not-allowed"
+                                                    : "text-gray-400 hover:text-white hover:bg-gray-700"
                                                     }`}
                                                 title={book.bookStatus === 2 ? "Delivered book cannot be edited" : "Edit"}
                                             >
@@ -436,8 +473,8 @@ export default function BookList() {
                                             <button
                                                 onClick={() => handleDelete(book.id)}
                                                 className={`p-2 rounded-lg transition-colors ${book.bookStatus === 2
-                                                        ? "text-gray-600 cursor-not-allowed"
-                                                        : "text-gray-400 hover:text-white hover:bg-gray-700"
+                                                    ? "text-gray-600 cursor-not-allowed"
+                                                    : "text-gray-400 hover:text-white hover:bg-gray-700"
                                                     }`}
                                                 title={book.bookStatus === 2 ? "Delivered book cannot be deleted" : "Delete"}
                                             >
@@ -445,21 +482,21 @@ export default function BookList() {
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                             </button>
-                                        
-                                        {book.pdfUrl && (
-                                            <a
-                                                href={book.pdfUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                download
-                                                className="text-gray-400 hover:text-blue-400 transition-colors p-2 hover:bg-gray-700 rounded-lg"
-                                                title="Download"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                </svg>
-                                            </a>
-                                        )}
+
+                                            {book.pdfUrl && (
+                                                <a
+                                                    href={book.pdfUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    download
+                                                    className="text-gray-400 hover:text-blue-400 transition-colors p-2 hover:bg-gray-700 rounded-lg"
+                                                    title="Download"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                </a>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

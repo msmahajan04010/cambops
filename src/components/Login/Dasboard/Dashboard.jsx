@@ -434,13 +434,16 @@
 //     </div>
 //   );
 // }
+
+
+
 import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebase";
 import Layout from "../Layout/AdminLayout";
 
 /* ---------------- ROLE CONSTANTS ---------------- */
-const ROLE = { ADMIN: 1, SPLITTING: 2, RECORDING: 3, QC: 4, BOTH: 5, ADMIN1: 0 };
+const ROLE = { ADMIN: 1, SPLITTING: 2, RECORDING: 3, QC: 4, BOTH: 5, CORRECTION: 6, ADMIN1: 0 };
 
 /* ---------------- HELPER ---------------- */
 function getCookie(name) {
@@ -457,7 +460,8 @@ export default function Dashboard() {
   const userTypeId = Number(getCookie("userTypeId"));
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { fetchDashboard(); }, []);
+
+
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -471,6 +475,8 @@ export default function Dashboard() {
     setAssignments(assignSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     setLoading(false);
   };
+
+  useEffect(() => { fetchDashboard(); }, []);
 
   if (loading) return (
     <Layout title="Dashboard" subtitle="View and Check all transactions of the System">
@@ -492,6 +498,7 @@ export default function Dashboard() {
       {userTypeId === ROLE.SPLITTING && <SplittingDashboard assignments={assignments} />}
       {userTypeId === ROLE.QC && <QCDashboard assignments={assignments} />}
       {userTypeId === ROLE.BOTH && <CombinedDashboard assignments={assignments} />}
+      {userTypeId === ROLE.CORRECTION && <CorrectionDashboard assignments={assignments} />}
     </Layout>
   );
 }
@@ -499,13 +506,14 @@ export default function Dashboard() {
 /* ---------------- ADMIN DASHBOARD ---------------- */
 function AdminDashboard({ users, books, assignments }) {
   const [activeTab, setActiveTab] = useState("overview");
-
+  const [expandedBook, setExpandedBook] = useState(null);
   /* ACTIVE USERS */
   const activeUserIds = [];
   assignments.forEach(a => {
     if ([1, 2, 3, 4].includes(a.recording?.status)) activeUserIds.push(a.recording.userId);
     if ([1, 2, 3, 4].includes(a.splitting?.status)) activeUserIds.push(a.splitting.userId);
     if ([1, 2, 3, 4].includes(a.qc?.status)) activeUserIds.push(a.qc.userId);
+    if ([1, 2, 3, 4].includes(a.correction?.status)) activeUserIds.push(a.correction.userId);
   });
   const uniqueActiveIds = [...new Set(activeUserIds)];
   const activeUsers = users.filter(u => uniqueActiveIds.includes(u.id));
@@ -518,81 +526,101 @@ function AdminDashboard({ users, books, assignments }) {
     if (!chapterMap[key]) chapterMap[key] = a;
   });
 
-let fullyUnassigned = 0,
+  let fullyUnassigned = 0,
     recPending = 0,
     splitPending = 0,
-    qcPendingStage = 0;
+    qcPendingStage = 0,
+    correctionPending = 0;
 
-let recActiveCount = 0,
+  let recActiveCount = 0,
     splitActiveCount = 0,
-    qcActiveCount = 0;
+    qcActiveCount = 0,
+    correctionActiveCount = 0;
 
-let recDone = 0,
+  let recDone = 0,
     splitDone = 0,
     qcDone = 0,
+    correctionDone = 0,
     fullyDelivered = 0;
 
   Object.values(chapterMap).forEach(a => {
-  const { recording: rec, splitting: split, qc } = a;
+    const { recording: rec, splitting: split, qc, correction } = a;
 
-  // Fully unassigned
-  if (!rec && !split && !qc) {
-    fullyUnassigned++;
-    return;
-  }
+    // Fully unassigned
+    if (!rec && !split && !qc) {
+      fullyUnassigned++;
+      return;
+    }
 
-  // ======================
-  // RECORDING
-  // ======================
-  if (!rec || rec.status === 8 || rec.status === 1) {
-    recPending++;
-  } 
-else if (rec.status === 2) {
-  recActiveCount++;
-}
-  else if (rec.status === 3) {
-    recDone++;
-  }
+    // ======================
+    // RECORDING
+    // ======================
+    if (!rec || rec.status === 8 || rec.status === 1) {
+      recPending++;
+    }
+    else if (rec.status === 2) {
+      recActiveCount++;
+    }
+    else if (rec.status === 3) {
+      recDone++;
+    }
 
-  // ======================
-  // SPLITTING
-  // ======================
-  if (!split || split.status === 8 || split.status === 1) {
-    splitPending++;
-  } 
-else if (split.status === 2) {
-  splitActiveCount++;
-}
+    // ======================
+    // SPLITTING
+    // ======================
+    if (!split || split.status === 8 || split.status === 1) {
+      splitPending++;
+    }
+    else if (split.status === 2) {
+      splitActiveCount++;
+    }
 
 
-  else if (split.status === 3) {
-    splitDone++;
-  }
+    else if (split.status === 3) {
+      splitDone++;
+    }
 
-  // ======================
-  // QC
-  // ======================
-  if (!qc || qc.status === 8 || qc.status === 1) {
-    qcPendingStage++;
-  } 
-else if (qc.status === 2) {
-  qcActiveCount++;
-}
-  else if (qc.status === 3) {
-    qcDone++;
-  }
+    // ======================
+    // QC
+    // ======================
+    if (!qc || qc.status === 8 || qc.status === 1) {
+      qcPendingStage++;
+    }
+    else if (qc.status === 2) {
+      qcActiveCount++;
+    }
+    else if (qc.status === 3) {
+      qcDone++;
+    }
 
-  // ======================
-  // Fully Delivered (All Done)
-  // ======================
-  if (
-    rec?.status === 6 &&
-    split?.status === 6 &&
-    qc?.status === 6
-  ) {
-    fullyDelivered++;
-  }
-});
+
+    // ======================
+    // CORRECTION
+    // ======================
+
+    if (!correction || correction.status === 8 || correction.status === 1) {
+      correctionPending++;
+    }
+    else if (correction.status === 2) {
+      correctionActiveCount++;
+    }
+    else if (correction.status === 3) {
+      correctionDone++;
+    }
+
+
+    // ======================
+    // Fully Delivered (All Done)
+    // ======================
+    if (
+      rec?.status === 6 &&
+      split?.status === 6 &&
+      qc?.status === 6 &&
+      (!correction || correction?.status === 6)
+    ) {
+      fullyDelivered++;
+    }
+  });
 
   const totalChapters = Object.keys(chapterMap).length;
 
@@ -628,15 +656,31 @@ else if (qc.status === 2) {
   const recActive = assignments.filter(a => [1, 2, 3, 4].includes(a.recording?.status)).length;
   const splitActive = assignments.filter(a => [1, 2, 3, 4].includes(a.splitting?.status)).length;
   const qcActive = assignments.filter(a => [1, 2, 3, 4].includes(a.qc?.status)).length;
-
+  const correctionActive = assignments.filter(a => [1, 2, 3, 4].includes(a.correction?.status)).length;
   /* USER WORKLOAD */
-  const userWorkload = users.map(u => {
-    const recTasks = assignments.filter(a => a.recording?.userId === u.id && [1,2,3,4].includes(a.recording?.status)).length;
-    const splitTasks = assignments.filter(a => a.splitting?.userId === u.id && [1,2,3,4].includes(a.splitting?.status)).length;
-    const qcTasks = assignments.filter(a => a.qc?.userId === u.id && [1,2,3,4].includes(a.qc?.status)).length;
-    const total = recTasks + splitTasks + qcTasks;
-    return { ...u, recTasks, splitTasks, qcTasks, total };
-  }).filter(u => u.total > 0).sort((a, b) => b.total - a.total);
+const userWorkload = users.map(u => {
+  const recTasks = assignments.filter(
+    a => a.recording?.userId === u.id && [1,2,3,4].includes(a.recording?.status)
+  ).length;
+
+  const splitTasks = assignments.filter(
+    a => a.splitting?.userId === u.id && [1,2,3,4].includes(a.splitting?.status)
+  ).length;
+
+  const qcTasks = assignments.filter(
+    a => a.qc?.userId === u.id && [1,2,3,4].includes(a.qc?.status)
+  ).length;
+
+  const correctionTasks = assignments.filter(
+    a => a.correction?.userId === u.id && [1,2,3,4].includes(a.correction?.status)
+  ).length;
+
+  const total = recTasks + splitTasks + qcTasks + correctionTasks;
+
+  return { ...u, recTasks, splitTasks, qcTasks, correctionTasks, total };
+})
+.filter(u => u.total > 0)
+.sort((a, b) => b.total - a.total);
 
   /* IN-PROGRESS CHAPTERS for Chapters tab */
   const inProgressChapters = assignments
@@ -650,7 +694,9 @@ else if (qc.status === 2) {
       const recUser = users.find(u => u.id === a.recording?.userId);
       const splitUser = users.find(u => u.id === a.splitting?.userId);
       const qcUser = users.find(u => u.id === a.qc?.userId);
-      return { ...a, bookName: book?.bookName || "Unknown Book", recUser, splitUser, qcUser };
+      const correctionUser = users.find(u => u.id === a.correction?.userId);
+
+      return { ...a, bookName: book?.bookName || "Unknown Book", recUser, splitUser, qcUser, correctionUser };
     })
     .sort((a, b) => (a.bookName > b.bookName ? 1 : -1));
 
@@ -676,12 +722,12 @@ else if (qc.status === 2) {
         <MetricCard icon="👥" label="Total Users" value={users.length} sub={`${activeUsers.length} active · ${idleUsers.length} idle`} glowClass="stat-glow-blue" accent="text-indigo-400" />
         <MetricCard icon="📚" label="Total Books" value={books.length} sub={`${runningBooks.length} in progress · ${deliveredBooks.length} done`} glowClass="stat-glow-emerald" accent="text-emerald-400" />
         <MetricCard icon="📄" label="Total Chapters" value={totalChapters} sub={`${fullyDelivered} fully delivered`} glowClass="stat-glow-amber" accent="text-amber-400" />
-        <MetricCard icon="⚡" label="Active Tasks" value={recActive + splitActive + qcActive} sub={`Rec ${recActive} · Split ${splitActive} · QC ${qcActive}`} glowClass="stat-glow-violet" accent="text-violet-400" />
+        <MetricCard icon="⚡" label="Active Tasks" value={recActive + splitActive + qcActive + correctionActive} sub={`Rec ${recActive} · Split ${splitActive} · QC ${qcActive} · Corr ${correctionActive}`} glowClass="stat-glow-violet" accent="text-violet-400" />
       </div>
 
       {/* ── TABS ── */}
       <div className="flex gap-2 border-b border-gray-800 pb-0 flex-wrap">
-        {["overview", "books", "chapters", "users"].map(tab => (
+        {["overview", "books", "users"].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -710,6 +756,15 @@ else if (qc.status === 2) {
               <PipelineStage label="Recording" icon="🎙️" active={recActiveCount} done={recDone} pending={recPending} total={totalChapters} color="indigo" />
               <PipelineStage label="Splitting" icon="✂️" active={splitActiveCount} done={splitDone} pending={splitPending} total={totalChapters} color="amber" />
               <PipelineStage label="QC Review" icon="🔍" active={qcActiveCount} done={qcDone} pending={qcPendingStage} total={totalChapters} color="emerald" />
+              <PipelineStage
+                label="Correction"
+                icon="🛠️"
+                active={correctionActiveCount}
+                done={correctionDone}
+                pending={correctionPending}
+                total={totalChapters}
+                color="rose"
+              />
             </div>
           </div>
 
@@ -733,14 +788,21 @@ else if (qc.status === 2) {
       {activeTab === "books" && (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4 mb-2">
-             <SmallStat label="Total" value={books.length} color="text-indigo-400" />
+            <SmallStat label="Total" value={books.length} color="text-indigo-400" />
             <SmallStat label="In Progress" value={runningBooks.length} color="text-amber-400" />
             <SmallStat label="Delivered" value={deliveredBooks.length} color="text-emerald-400" />
-           
+
           </div>
           <div className="space-y-3">
             {bookProgress.sort((a, b) => b.progress - a.progress).map(book => (
-              <BookCard key={book.id} book={book} />
+              <BookCard
+                key={book.id}
+                book={book}
+                expandedBook={expandedBook}
+                setExpandedBook={setExpandedBook}
+                assignments={assignments}
+                 users={users}
+              />
             ))}
           </div>
         </div>
@@ -763,71 +825,82 @@ else if (qc.status === 2) {
             </div>
           ) : (
             <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-     {/* Table header */}
-<div className="grid grid-cols-12 gap-2 px-5 py-4 bg-gray-800/70 border-b border-gray-700 text-xs font-semibold uppercase tracking-wider">
+              {/* Table header */}
+              <div className="grid grid-cols-12 gap-2 px-5 py-4 bg-gray-800/70 border-b border-gray-700 text-xs font-semibold uppercase tracking-wider">
 
-  <div className="col-span-2 text-gray-400">Book</div>
+                <div className="col-span-2 text-gray-400">Book</div>
 
-  <div className="col-span-2 text-gray-400">Chapter Name</div>
+                <div className="col-span-2 text-gray-400">Chapter Name</div>
 
-  
 
-  <div className="col-span-3 text-indigo-400 flex items-center gap-2">
-    <span>🎙️</span> <span>Recording</span>
-  </div>
 
-  <div className="col-span-2 text-amber-400 flex items-center gap-2">
-    <span>✂️</span> <span>Splitting</span>
-  </div>
+                <div className="col-span-2 text-indigo-400 flex items-center gap-2">
+                  <span>🎙️</span> <span>Recording</span>
+                </div>
 
-  <div className="col-span-2 text-emerald-400 flex items-center gap-2">
-    <span>🔍</span> <span>QC</span>
-  </div>
+                <div className="col-span-2 text-amber-400 flex items-center gap-2">
+                  <span>✂️</span> <span>Splitting</span>
+                </div>
 
-</div>
+                <div className="col-span-2 text-emerald-400 flex items-center gap-2">
+                  <span>🔍</span> <span>QC</span>
+                </div>
+
+                <div className="col-span-2 text-emerald-400 flex items-center gap-2">
+                  <span>✅</span> <span>Correction</span>
+                </div>
+
+              </div>
 
               <div className="divide-y divide-gray-800/50 max-h-[60vh] overflow-y-auto">
-               {inProgressChapters.map((ch, i) => {
-    const recStatus = ch.recording?.status;
-    const splitStatus = ch.splitting?.status;
-    const qcStatus = ch.qc?.status;
+                {inProgressChapters.map((ch, i) => {
+                  const recStatus = ch.recording?.status;
+                  const splitStatus = ch.splitting?.status;
+                  const qcStatus = ch.qc?.status;
 
-    return (
-      <div
-  key={ch.id || i}
-  className="chapter-row grid grid-cols-12 gap-2 px-5 py-3 items-center border-b border-gray-800 hover:bg-gray-800/40 transition"
->
-  {/* Book */}
-  <div className="col-span-2">
-    <p className="text-white text-sm truncate">{ch.bookName}</p>
-  </div>
+                  return (
+                    <div
+                      key={ch.id || i}
+                      className="chapter-row grid grid-cols-12 gap-2 px-5 py-3 items-center border-b border-gray-800 hover:bg-gray-800/40 transition"
+                    >
+                      {/* Book */}
+                      <div className="col-span-2">
+                        <p className="text-white text-sm truncate">{ch.bookName}</p>
+                      </div>
 
-  {/* Chapter Name */}
-  <div className="col-span-2">
-    <p className="text-indigo-400 text-sm truncate">
-      {ch.chapterName}
-    </p>
-  </div>
+                      {/* Chapter Name */}
+                      <div className="col-span-2">
+                        <p className="text-indigo-400 text-sm truncate">
+                          {ch.chapterName}
+                        </p>
+                      </div>
 
 
 
-  {/* Recording */}
-  <div className="col-span-3">
-    <ChapterStageCell status={recStatus} user={ch.recUser} />
-  </div>
+                      {/* Recording */}
+                      <div className="col-span-2">
+                        <ChapterStageCell status={recStatus} user={ch.recUser} />
+                      </div>
 
-  {/* Splitting */}
-  <div className="col-span-2">
-    <ChapterStageCell status={splitStatus} user={ch.splitUser} />
-  </div>
+                      {/* Splitting */}
+                      <div className="col-span-2">
+                        <ChapterStageCell status={splitStatus} user={ch.splitUser} />
+                      </div>
 
-  {/* QC */}
-  <div className="col-span-2">
-    <ChapterStageCell status={qcStatus} user={ch.qcUser} compact />
-  </div>
-</div>
-    );
-  })}
+                      {/* QC */}
+                      <div className="col-span-2">
+                        <ChapterStageCell status={qcStatus} user={ch.qcUser} compact />
+                      </div>
+
+                      <div className="col-span-2">
+                        <ChapterStageCell status={ch.correction?.status} user={ch.correctionUser} compact />
+                      </div>
+
+                    </div>
+
+
+                  );
+                })}
               </div>
             </div>
           )}
@@ -855,9 +928,10 @@ else if (qc.status === 2) {
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm font-medium truncate">{u.firstName} {u.lastName}</p>
                       <div className="flex gap-3 mt-1">
-                        {u.recTasks > 0 && <span className="text-xs text-indigo-400">🎙️ {u.recTasks}</span>}
-                        {u.splitTasks > 0 && <span className="text-xs text-amber-400">✂️ {u.splitTasks}</span>}
-                        {u.qcTasks > 0 && <span className="text-xs text-emerald-400">🔍 {u.qcTasks}</span>}
+                        {u.recTasks > 0 && <span className="text-xs text-indigo-400">Recording : {u.recTasks}</span>}
+                        {u.splitTasks > 0 && <span className="text-xs text-amber-400">Splitting : {u.splitTasks}</span>}
+                        {u.qcTasks > 0 && <span className="text-xs text-emerald-400">QC : {u.qcTasks}</span>}
+                     {u.correctionTasks > 0 && <span className="text-xs text-rose-400">Correction : {u.correctionTasks}</span>}
                       </div>
                     </div>
                     <div className="text-right">
@@ -900,6 +974,7 @@ function PipelineStage({ label, icon, active, done, pending, total, color }) {
     indigo: { bar: "bg-indigo-500", active: "text-indigo-400 bg-indigo-500/10", text: "text-indigo-400" },
     amber: { bar: "bg-amber-400", active: "text-amber-400 bg-amber-500/10", text: "text-amber-400" },
     emerald: { bar: "bg-emerald-500", active: "text-emerald-400 bg-emerald-500/10", text: "text-emerald-400" },
+    rose: { bar: "bg-rose-500", active: "text-rose-400 bg-rose-500/10", text: "text-rose-400" }, // ✅ add this
   };
   const c = colors[color];
   const doneWidth = total ? (done / total) * 100 : 0;
@@ -952,7 +1027,7 @@ function SmallStat({ label, value, color }) {
   );
 }
 
-function BookCard({ book }) {
+function BookCard({ book, expandedBook, setExpandedBook, assignments,users }) {
   const statusColor = book.progress === 100 ? "bg-emerald-500" : book.progress > 50 ? "bg-indigo-500" : book.progress > 0 ? "bg-amber-400" : "bg-gray-600";
   const statusLabel = book.progress === 100 ? "Delivered" : book.progress > 0 ? "In Progress" : "Not Started";
   const statusText = book.progress === 100 ? "text-emerald-400 bg-emerald-500/10" : book.progress > 0 ? "text-amber-400 bg-amber-500/10" : "text-gray-500 bg-gray-800";
@@ -968,6 +1043,14 @@ function BookCard({ book }) {
           <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusText}`}>{statusLabel}</span>
           <span className="text-white font-bold text-lg" style={{ fontFamily: "'DM Mono', monospace" }}>{book.progress}%</span>
         </div>
+        <button
+          onClick={() =>
+            setExpandedBook(expandedBook === book.id ? null : book.id)
+          }
+          className="text-indigo-400 text-sm hover:underline"
+        >
+          {expandedBook === book.id ? "Hide Chapters ▲" : "View Chapters ▶"}
+        </button>
       </div>
 
       <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
@@ -988,6 +1071,39 @@ function BookCard({ book }) {
           <span className="text-xs text-gray-400">{book.remaining} remaining</span>
         </div>
       </div>
+     {expandedBook === book.id && (
+  <div className="mt-4 border-t border-gray-800 pt-3 space-y-2">
+
+    <div className="grid grid-cols-5 text-xs text-gray-400 border-b border-gray-800 pb-2 mb-2">
+      <div>Chapter</div>
+      <div>🎙 Recording</div>
+      <div>✂ Splitting</div>
+      <div>🔍 QC</div>
+      <div>🛠 Correction</div>
+    </div>
+
+    {assignments?.filter(a => a.bookId === book?.id)?.map((ch) => {
+      const recUser = users?.find(u => u.id === ch.recording?.userId);
+      const splitUser = users?.find(u => u.id === ch.splitting?.userId);
+      const qcUser = users?.find(u => u.id === ch.qc?.userId);
+      const correctionUser = users?.find(u => u.id === ch.correction?.userId);
+
+      return (
+     <div
+  key={ch.id}
+  className="grid grid-cols-5 text-sm text-gray-300 py-2 border-b border-gray-800"
+>
+          <div>{ch.chapterName}</div>
+
+          <ChapterStageCell status={ch.recording?.status} user={recUser} />
+          <ChapterStageCell status={ch.splitting?.status} user={splitUser} />
+          <ChapterStageCell status={ch.qc?.status} user={qcUser} />
+          <ChapterStageCell status={ch.correction?.status} user={correctionUser} />
+        </div>
+      );
+    })}
+  </div>
+)}
     </div>
   );
 }
@@ -1055,13 +1171,13 @@ function UserSection({ title, users, color, badge }) {
 
 function RecordingDashboard({ assignments }) {
   const userId = (getCookie("userId"));
-  const tasks = assignments.filter(a => a.recording?.userId === userId && [1, 2, 3, 4].includes(a.recording?.status));
+  const tasks = assignments.filter(a => a.recording?.userId === userId && [1, 2].includes(a.recording?.status));
   return <SimpleDashboard title="Recording Tasks" icon="🎙️" count={tasks.length} color="indigo" />;
 }
 
 function SplittingDashboard({ assignments }) {
   const userId = (getCookie("userId"));
-  const tasks = assignments.filter(a => a.splitting?.userId === userId && [1, 2, 3, 4].includes(a.splitting?.status));
+  const tasks = assignments.filter(a => a.splitting?.userId === userId && [1, 2].includes(a.splitting?.status));
   return <SimpleDashboard title="Splitting Tasks" icon="✂️" count={tasks.length} color="amber" />;
 }
 
@@ -1071,10 +1187,27 @@ function QCDashboard({ assignments }) {
   return <SimpleDashboard title="QC Pending Tasks" icon="🔍" count={tasks.length} color="emerald" />;
 }
 
+function CorrectionDashboard({ assignments }) {
+  const userId = getCookie("userId");
+
+  const tasks = assignments.filter(
+    a => a.correction?.userId === userId && [1, 2].includes(a.correction?.status)
+  );
+
+  return (
+    <SimpleDashboard
+      title="Correction Tasks"
+      icon="🛠️"
+      count={tasks.length}
+      color="rose"
+    />
+  );
+}
+
 function CombinedDashboard({ assignments }) {
   const userId = (getCookie("userId"));
-  const recTasks = assignments.filter(a => a.recording?.userId === userId && [1,2].includes(a.recording?.status)).length;
-  const splitTasks = assignments.filter(a => a.splitting?.userId === userId && [1,2].includes(a.splitting?.status)).length;
+  const recTasks = assignments.filter(a => a.recording?.userId === userId && [1, 2].includes(a.recording?.status)).length;
+  const splitTasks = assignments.filter(a => a.splitting?.userId === userId && [1, 2].includes(a.splitting?.status)).length;
   return (
     <div className="space-y-4">
       <SimpleDashboard title="Recording Tasks" icon="🎙️" count={recTasks} color="indigo" />
@@ -1088,6 +1221,7 @@ function SimpleDashboard({ title, icon, count, color }) {
     indigo: "text-indigo-400 bg-indigo-500/10 border-indigo-500/30",
     amber: "text-amber-400 bg-amber-500/10 border-amber-500/30",
     emerald: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+    rose: "text-rose-400 bg-rose-500/10 border-rose-500/30",
   };
   return (
     <div className={`border rounded-2xl p-8 text-center ${colors[color]}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
