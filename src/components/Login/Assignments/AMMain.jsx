@@ -162,7 +162,7 @@ const notifyAdmin = async ({ action, bookName, chapterName, userName, remark, ty
     <p style="text-align: center; margin: 24px 0;">
       <a href="https://cambops.vercel.app/"
          style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-        Log In to PhoenixVerse
+        Log In to G8 Studio
       </a>
     </p>
 
@@ -171,7 +171,7 @@ const notifyAdmin = async ({ action, bookName, chapterName, userName, remark, ty
 
     <p>
       Warm regards,<br/>
-      <strong>The PhoenixVerse Team</strong>
+      <strong>The G8 Studio Team</strong>
     </p>
   </div>
 `

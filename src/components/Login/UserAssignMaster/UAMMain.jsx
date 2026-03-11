@@ -446,7 +446,7 @@ export default function UserEntryScreen() {
   const chapters = getChapters();
 
   const API_KEY = import.meta.env.VITE_BREVO_API_KEY
-
+  
   const sendAssignmentMail = async (data) => {
     try {
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -493,7 +493,7 @@ export default function UserEntryScreen() {
     <p style="text-align: center; margin: 24px 0;">
       <a href="https://cambops.vercel.app/"
          style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-        Log In to PhoenixVerse
+        Log In to G8 Studio
       </a>
     </p>
 
@@ -504,7 +504,7 @@ export default function UserEntryScreen() {
 
     <p>
       Warm regards,<br/>
-      <strong>The PhoenixVerse Team</strong>
+      <strong>The G8 Studio Team</strong>
     </p>
   </div>
 `
@@ -579,11 +579,11 @@ export default function UserEntryScreen() {
                     Please select a book first
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-60 overflow-y-auto bg-gray-800 p-4 rounded-xl border border-gray-700">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 max-h-60 overflow-y-auto bg-gray-800 p-4 rounded-xl border border-gray-700">
                     {chapters.map((chapter) => (
                       <label
                         key={chapter.chapterNumber}
-                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer border ${isChapterDisabled(chapter.chapterNumber)
+                        className={`flex items-start gap-2 p-3 break-all rounded-lg cursor-pointer border ${isChapterDisabled(chapter.chapterNumber)
                           ? "bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed"
                           : selectedChapters.includes(chapter.chapterNumber)
                             ? "bg-white text-black border-white"

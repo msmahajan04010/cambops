@@ -3,7 +3,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebase";
 import Layout from "../Layout/AdminLayout";
 import { useNavigate } from "react-router-dom";
-import Logo from "../../../assets/verse_logo.jpg"
+import Logo from "../../../assets/G8_logo.png"
 
 export default function TransactionHistory() {
   const [transactions, setTransactions] = useState([]);

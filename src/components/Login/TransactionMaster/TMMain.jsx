@@ -10,7 +10,7 @@ import {
 import { db } from "../../../firebase";
 import toast from "react-hot-toast";
 import { useNavigate, useLocation } from 'react-router-dom';
-import Logo from "../../../assets/verse_logo.jpg"
+import Logo from "../../../assets/G8_logo.png"
 
 export default function TransactionMaster() {
   const navigate = useNavigate();

@@ -348,7 +348,7 @@ export default function BookDetails() {
 
     <p>
       Warm regards,<br/>
-      <strong>The PhoenixVerse Team</strong>
+      <strong>The G8 Studio Team</strong>
     </p>
   </div>
 `

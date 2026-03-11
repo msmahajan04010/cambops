@@ -17,7 +17,7 @@ export default function BookMaster() {
   const location = useLocation();
   const editingBook = location.state?.book || null;
   const [isEditMode, setIsEditMode] = useState(false);
-
+  const [zeroPadding, setZeroPadding] = useState(0);
 
 
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -78,6 +78,8 @@ export default function BookMaster() {
   };
 
   const handleSave = async () => {
+
+    console.log(bookName,bookCode,maxChapterLimit,selectedLanguage)
     if (
       !bookName ||
       !bookCode ||
@@ -118,10 +120,14 @@ export default function BookMaster() {
         uploadedPdfUrl = data.secure_url;
       }
 
-      const chapterDetails = selectedChapters.map((ch) => ({
-        chapterNumber: ch,
-        chapterName: `${ch}_BK_ADBL_${bookCode}`
-      }));
+      const chapterDetails = selectedChapters.map((ch) => {
+        const formatted = formatChapterNumber(ch);
+
+        return {
+          chapterNumber: ch,
+          chapterName: `${formatted}_BK_ADBL_${bookCode}`
+        };
+      });
 
       const bookData = {
         bookName,
@@ -169,12 +175,19 @@ export default function BookMaster() {
 
   const chapters = generateChapters();
 
+  const formatChapterNumber = (num) => {
+    const maxDigits = String(parseInt(maxChapterLimit, 10)).length;
+    const totalDigits = maxDigits + parseInt(zeroPadding || 0);
+
+    return String(num).padStart(totalDigits, "0");
+  };
+
   if (loading) {
     return (
       <Layout
-      title={isEditMode ? "Edit Book" : "Book Master"}
-      subtitle={isEditMode ? "Update book details" : "Add and manage your book collection"}
-    >
+        title={isEditMode ? "Edit Book" : "Book Master"}
+        subtitle={isEditMode ? "Update book details" : "Add and manage your book collection"}
+      >
         <div className="flex items-center justify-center h-[70vh]">
           <div className="flex flex-col items-center gap-4">
 
@@ -243,56 +256,51 @@ export default function BookMaster() {
               {/* Max Chapter Limit */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                {/* Max Chapter Limit */}
+                {/* Max Chapter */}
                 <div className="space-y-2">
-                  <label htmlFor="maxChapter" className="block text-sm font-medium text-gray-300">
-                    Max Chapter Limit <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium text-gray-300">
+                    Max Chapter Limit *
                   </label>
-                  <input
-                    id="maxChapter"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={3}
-                    value={maxChapterLimit}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, ''); // allow only digits
-                      setMaxChapterLimit(value.slice(0, 3)); // limit to 3 digits
-                      setSelectedChapters([]);
-                    }}
-                    className="w-full text-base px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl transition-all duration-200 outline-none placeholder-gray-500"
-                  />
-                </div>
 
-                {/* Select Language */}
-                <div className="space-y-2">
-                  <label htmlFor="language" className="block text-sm font-medium text-gray-300">
-                    Select Language <span className="text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="language"
-                      value={selectedLanguage}
-                      onChange={(e) => setSelectedLanguage(e.target.value)}
-                      className="w-full text-base px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl transition-all duration-200 outline-none appearance-none cursor-pointer"
-                    >
-                      <option value="" className="bg-gray-800">--Select--</option>
-                      {languages.map((lang) => (
-                        <option key={lang} value={lang} className="bg-gray-800">
-                          {lang}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="flex gap-3">
 
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                    <input
+                      type="number"
+                      value={maxChapterLimit}
+                      onChange={(e) => {
+                        setMaxChapterLimit(e.target.value);
+                        setSelectedChapters([]);
+                      }}
+                      className="flex-1 text-base px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl"
+                    />
+
+                    {/* Zero padding small box */}
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      value={zeroPadding}
+                      onChange={(e) => setZeroPadding(e.target.value)}
+                      className="w-20 text-center text-base px-2 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl"
+                      placeholder="0"
+                    />
+
                   </div>
+
                 </div>
 
               </div>
+
+              <div className="space-y-2">
+                 <label htmlFor="language" className="block text-sm font-medium text-gray-300"> 
+                  Select Language <span className="text-red-400">*</span> 
+                  </label> <div className="relative"> 
+                    <select id="language" value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} className="w-full text-base px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl transition-all duration-200 outline-none appearance-none cursor-pointer" > <option value="" className="bg-gray-800">--Select--</option> 
+                    {languages.map((lang) => ( <option key={lang} value={lang} className="bg-gray-800"> {lang} </option> ))} 
+                    </select> 
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"> 
+                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"> 
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </div> </div> </div>
 
 
 
@@ -318,11 +326,11 @@ export default function BookMaster() {
                     </button>
                   </div>
                   <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 max-h-96 overflow-y-auto">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                   <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
                       {chapters.map((chapterNum) => (
                         <label
                           key={chapterNum}
-                          className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all duration-200 ${selectedChapters.includes(chapterNum)
+                          className={`flex items-start gap-2 p-3 break-all rounded-lg cursor-pointer transition-all duration-200 ${selectedChapters.includes(chapterNum)
                             ? 'bg-white text-black'
                             : 'bg-gray-700 text-white hover:bg-gray-600'
                             }`}
@@ -333,7 +341,9 @@ export default function BookMaster() {
                             onChange={() => handleChapterToggle(chapterNum)}
                             className="w-4 h-4 rounded focus:ring-2 focus:ring-white"
                           />
-                          <span className="font-medium">{chapterNum}_BK_ADBL_{bookCode}</span>
+                          <span className="font-medium break-all">
+                            {formatChapterNumber(chapterNum)}_BK_ADBL_{bookCode}
+                          </span>
                         </label>
                       ))}
                     </div>

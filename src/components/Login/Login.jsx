@@ -4,7 +4,7 @@ import { collection, getDocs, query, where, doc, updateDoc } from "firebase/fire
 import { db } from "../../firebase";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
-import Logo from "../../assets/verse_logo.jpg"
+import Logo from "../../assets/G8_logo.png"
 
 
 export default function Login() {

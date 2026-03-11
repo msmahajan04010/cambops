@@ -77,7 +77,7 @@ export default function UserMaster() {
                     subject: "Your Account Has Been Created",
                     htmlContent: `
         <div style="font-family:Arial;padding:20px">
-          <h2>Welcome to PhoenixVerse Studio</h2>
+          <h2>Welcome to G8 Studio</h2>
 
           <p>Hello <b>${firstName}</b>,</p>
 
@@ -89,7 +89,7 @@ export default function UserMaster() {
           <p>Please login and change your password after first login.</p>
 
           <br/>
-          <p>Regards,<br/>PhoenixVerse</p>
+          <p>Regards,<br/>G8 Studio</p>
         </div>
         `
                 })

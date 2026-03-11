@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Cookies from "js-cookie";
-import logo from "../../../assets/verse_logo_1.png";
+import logo from "../../../assets/G8_logo.png";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const navigate = useNavigate();
