@@ -15,7 +15,7 @@ export default function UserMaster() {
 
 
     const [editingUser, setEditingUser] = useState(null);
-    const [userType, setUserType] = useState("");
+   const [isAdmin, setIsAdmin] = useState(false);
     const location = useLocation();
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [generatedPassword, setGeneratedPassword] = useState("");
@@ -30,7 +30,7 @@ export default function UserMaster() {
             setLastName(user.lastName || "");
             setEmail(user.email || "");
             setPhoneNumber(user.phoneNumber || "");
-            setUserType(user.userTypeId || "");
+           setIsAdmin(user.userTypeId === 1);
         }
     }, [location.state]);
 
@@ -116,10 +116,7 @@ export default function UserMaster() {
         if (!validateEmail(email)) { toast.error('Please enter a valid email address'); return; }
         if (!phoneNumber.trim()) { toast.error('Please enter phone number'); return; }
         if (!validatePhone(phoneNumber)) { toast.error('Please enter a valid 10-digit phone number'); return; }
-        if (!userType) {
-            toast.error("Please select user type");
-            return;
-        }
+       const userTypeId = isAdmin ? 1 : 2;
 
         if (editingUser) {
             // Update existing user
@@ -128,7 +125,7 @@ export default function UserMaster() {
                 lastName,
                 email,
                 phoneNumber,
-                userTypeId: Number(userType),
+                userTypeId: userTypeId,
                 updatedAt: new Date(),
             }, { merge: true });
 
@@ -171,7 +168,7 @@ if (!nameSnap.empty) {
                 email,
                 phoneNumber,
                 password: randomPassword,
-                userTypeId: Number(userType), // Save numeric ID
+               userTypeId: userTypeId,
                 ischangepwd: 0,
                 status: "Active",
                 createdAt: new Date()
@@ -199,7 +196,7 @@ if (!nameSnap.empty) {
         setEmail('');
         setPhoneNumber('');
         setEditingUser(null);
-        setUserType("");
+       setIsAdmin(false);
     };
 
     const handleCopyPassword = () => {
@@ -304,24 +301,19 @@ if (!nameSnap.empty) {
 
                         </div>
 
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-300">
-                                User Type <span className="text-red-400">*</span>
-                            </label>
+                   <div className="space-y-2 md:col-span-2">
+ 
 
-                            <select
-                                value={userType}
-                                onChange={(e) => setUserType(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 text-white rounded-xl outline-none"
-                            >
-                                <option value="">--Select--</option>
-                                {userTypeOptions.map((type) => (
-                                    <option key={type.value} value={type.value}>
-                                        {type.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+    <div className="flex items-center gap-3 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3">
+        <input
+            type="checkbox"
+            checked={isAdmin}
+            onChange={(e) => setIsAdmin(e.target.checked)}
+            className="w-5 h-5 accent-blue-600"
+        />
+        <span className="text-gray-300">Grant Admin Access</span>
+    </div>
+</div>
 
                     </div>
 

@@ -35,6 +35,10 @@ export default function BookDetails() {
   const [showUnassignModal, setShowUnassignModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedAssignmentForRevert, setSelectedAssignmentForRevert] = useState(null);
+  const [showRevertModal, setShowRevertModal] = useState(false);
+const [adminRemark, setAdminRemark] = useState("");
+const [revertAssignmentId, setRevertAssignmentId] = useState(null);
+
 
   const [hours, setHours] = useState("");
   const [minutes, setMinutes] = useState("");
@@ -50,6 +54,26 @@ export default function BookDetails() {
   const userName = getCookie("userName");
 
   const API_KEY = import.meta.env.VITE_BREVO_API_KEY
+
+
+  const [manualEdit, setManualEdit] = useState(false);
+
+useEffect(() => {
+  if (!manualEdit) {
+    const result = calculateTotalHours(hours, minutes, seconds);
+    setTotalHours(result);
+  }
+}, [hours, minutes, seconds]);
+
+
+const resetDurationFields = () => {
+  setHours("");
+  setMinutes("");
+  setSeconds("");
+  setTotalHours(0);
+};
+
+
 
   function getCookie(name) {
     const value = `; ${document.cookie}`;
@@ -173,7 +197,7 @@ export default function BookDetails() {
       });
 
       toast.success("Chapter delivered successfully.");
-
+resetDurationFields();
       setShowDeliverModal(false);
       setChapterHours("");
       setSelectedAssignment(null);
@@ -193,54 +217,45 @@ export default function BookDetails() {
   // ==============================
   // Revert Chapter
   // ==============================
-  const handleRevert = async (assignmentId) => {
-    try {
-      setLoading(true);
-      await updateDoc(doc(db, "chapterAssignments", assignmentId), {
-        "recording.status": 2,
-        "splitting.status": 2,
-        "qc.status": 1,
-        adminRemark: "Reverted by Admin",
-        revertedAt: new Date()
-      });
+const handleRevert = async () => {
 
-      await addAdminHistory(assignmentId, "reverted", {
-        remark: "Reverted by Admin"
-      });
+  if (!adminRemark) {
+    toast.error("Please enter remark");
+    return;
+  }
 
-      const assignment = assignments.find(a => a.id === assignmentId);
+  try {
 
-      const chapter = book.chapters.find(
-        c => c.chapterNumber === assignment.chapterNumber
-      );
+    setLoading(true);
 
-      const roles = ["recording", "splitting", "qc", "correction"];
+    await updateDoc(doc(db, "chapterAssignments", revertAssignmentId), {
+      "recording.status": 2,
+      "splitting.status": 2,
+      "qc.status": 1,
+      adminRemark: adminRemark,
+      revertedAt: new Date()
+    });
 
-      for (const role of roles) {
-        const roleData = assignment[role];
+    await addAdminHistory(revertAssignmentId, "reverted", {
+      remark: adminRemark
+    });
 
-        if (roleData?.userId) {
-          const user = users.find(u => u.id === roleData.userId);
+    toast.success("Chapter reverted successfully");
 
-          await sendRevertMail({
-            email: user?.email,
-            userName: user?.firstName,
-            bookName: book.bookName,
-            chapterName: chapter?.chapterName,
-            role: role
-          });
-        }
-      }
+    setShowRevertModal(false);
+    setAdminRemark("");
+    setRevertAssignmentId(null);
 
-      toast.success("Chapter reverted successfully");
-      setLoading(false);
-      fetchData();
+    setLoading(false);
+    fetchData();
 
-    } catch (error) {
-      setLoading(false);
-      toast.error("Error reverting chapter");
-    }
-  };
+  } catch (error) {
+
+    setLoading(false);
+    toast.error("Error reverting chapter");
+
+  }
+};
 
   if (loading) {
     return (
@@ -531,14 +546,14 @@ export default function BookDetails() {
                     <td className="py-3 px-3 text-center">
                       {recording && (
                         <button
-                          disabled={recording.status === 3}
+                             disabled={[3, 6, 8].includes(recording.status)}
                           onClick={() => {
                             setSelectedRole("recording");
                             setSelectedAssignmentForRevert(assignment);
                             setShowUnassignModal(true);
                           }}
                           className={`px-2 py-1 rounded text-xs text-white ${getStatusLabel(recording.status).color
-                            } ${recording.status === 3
+                            } ${[3, 6, 8].includes(recording.status)
                               ? "opacity-50 cursor-not-allowed"
                               : "hover:opacity-80 cursor-pointer"
                             }`}
@@ -560,14 +575,14 @@ export default function BookDetails() {
                     <td className="py-3 px-3 text-center">
                       {splitting && (
                         <button
-                          disabled={splitting.status === 3}
+                          disabled={[3, 6, 8].includes(splitting.status)}
                           onClick={() => {
                             setSelectedRole("splitting");
                             setSelectedAssignmentForRevert(assignment);
                             setShowUnassignModal(true);
                           }}
                           className={`px-2 py-1 rounded text-xs text-white ${getStatusLabel(splitting.status).color
-                            } ${splitting.status === 3
+                            } ${[3, 6, 8].includes(splitting.status)
                               ? "opacity-50 cursor-not-allowed"
                               : "hover:opacity-80 cursor-pointer"
                             }`}
@@ -588,14 +603,14 @@ export default function BookDetails() {
                     <td className="py-3 px-3 text-center">
                       {qc && (
                         <button
-                          disabled={qc.status === 3}
+                            disabled={[3, 6, 8].includes(qc.status)}
                           onClick={() => {
                             setSelectedRole("qc");
                             setSelectedAssignmentForRevert(assignment);
                             setShowUnassignModal(true);
                           }}
                           className={`px-2 py-1 rounded text-xs text-white ${getStatusLabel(qc.status).color
-                            } ${qc.status === 3
+                            } ${[3, 6, 8].includes(qc.status)
                               ? "opacity-50 cursor-not-allowed"
                               : "hover:opacity-80 cursor-pointer"
                             }`}
@@ -659,7 +674,10 @@ export default function BookDetails() {
                           </button>
 
                           <button
-                            onClick={() => handleRevert(assignment.id)}
+                             onClick={() => {
+    setRevertAssignmentId(assignment.id);
+    setShowRevertModal(true);
+  }}
                             className="bg-yellow-600 px-3 py-1 rounded text-sm"
                           >
                             Revert
@@ -677,69 +695,183 @@ export default function BookDetails() {
         </div>
 
 
-        {showUnassignModal && (
+{showUnassignModal && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div 
+      className="
+        bg-gray-900 
+        border border-gray-700/50 
+        rounded-2xl 
+        shadow-2xl 
+        w-full max-w-md 
+        overflow-hidden
+        transform transition-all duration-200
+        scale-100
+      "
+    >
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4 border-b border-gray-800/60">
+        <h2 className="text-xl font-semibold text-red-400 flex items-center gap-3">
+          <svg 
+            className="w-6 h-6" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" 
+            />
+          </svg>
+          Confirm Unassignment
+        </h2>
+      </div>
 
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+      {/* Body */}
+      <div className="px-6 py-5 text-gray-300">
+        <p className="text-base leading-relaxed">
+          You're about to <span className="font-medium text-white">remove this module</span> from the assigned user.
+        </p>
+        <p className="mt-3 text-sm text-gray-400">
+          This action cannot be undone automatically.
+        </p>
+      </div>
 
-            <div className="bg-gray-800 p-6 rounded-xl w-96 text-white">
+      {/* Footer */}
+      <div className="px-6 py-5 bg-gray-950/40 flex gap-3 border-t border-gray-800/60">
+        <button
+          onClick={() => setShowUnassignModal(false)}
+          className="
+            flex-1 
+            px-5 py-3 
+            bg-gray-800 
+            hover:bg-gray-700 
+            text-gray-300 
+            font-medium 
+            rounded-lg 
+            transition-colors
+            border border-gray-700
+          "
+        >
+          Cancel
+        </button>
 
-              <h2 className="text-lg font-bold mb-4">
-                Are you sure you want to revert this module from user ?
-              </h2>
+        <button
+          onClick={handleUnassign}
+          className="
+            flex-1 
+            px-5 py-3 
+            bg-red-600/90 
+            hover:bg-red-600 
+            text-white 
+            font-medium 
+            rounded-lg 
+            transition-all 
+            shadow-red-900/30 
+            hover:shadow-red-900/50
+            active:scale-[0.98]
+          "
+        >
+          Yes, Unassign
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
-              <div className="flex gap-3">
 
-                <button
-                  onClick={handleUnassign}
-                  className="flex-1 bg-red-600 py-2 rounded"
-                >
-                  YES
-                </button>
-
-                <button
-                  onClick={() => setShowUnassignModal(false)}
-                  className="flex-1 bg-gray-600 py-2 rounded"
-                >
-                  NO
-                </button>
-
-              </div>
-
-            </div>
+      {showConfirmModal && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div
+      className={`
+        bg-gradient-to-b from-gray-900 to-gray-950 
+        border border-gray-700/60 
+        rounded-2xl 
+        shadow-2xl shadow-black/40 
+        w-full max-w-md 
+        overflow-hidden
+        transform transition-all duration-250
+        scale-100
+      `}
+    >
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4 border-b border-gray-800/70">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+            <svg
+              className="w-6 h-6 text-green-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2.2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
           </div>
+          <h2 className="text-xl font-semibold text-white">
+            Deliver Chapter
+          </h2>
+        </div>
+      </div>
 
-        )}
+      {/* Body */}
+      <div className="px-6 py-6 text-gray-300 space-y-3">
+        <p className="text-base leading-relaxed">
+          You're about to <span className="font-semibold text-green-400">deliver/publish</span> this chapter to the user.
+        </p>
+        <p className="text-sm text-gray-400">
+          Once delivered, the chapter will become available and this action cannot be reversed.
+        </p>
+      </div>
 
+      {/* Footer */}
+      <div className="px-6 py-5 bg-black/30 border-t border-gray-800/70 flex gap-3">
+        <button
+          onClick={() => setShowConfirmModal(false)}
+          className={`
+            flex-1 
+            py-3.5 px-5
+            bg-gray-800/80 
+            hover:bg-gray-700/90 
+            text-gray-300 
+            font-medium 
+            rounded-xl 
+            transition-all duration-200
+            border border-gray-700/50
+            active:scale-[0.98]
+          `}
+        >
+          Cancel
+        </button>
 
-        {showConfirmModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-            <div className="bg-gray-800 p-6 rounded-xl w-96 text-white">
-
-              <h2 className="text-lg font-bold mb-4">
-                Are you sure you want to deliver this chapter ?
-              </h2>
-
-              <div className="flex gap-3">
-
-                <button
-                  onClick={handleConfirmDeliver}
-                  className="flex-1 bg-green-600 py-2 rounded"
-                >
-                  YES
-                </button>
-
-                <button
-                  onClick={() => setShowConfirmModal(false)}
-                  className="flex-1 bg-gray-600 py-2 rounded"
-                >
-                  NO
-                </button>
-
-              </div>
-
-            </div>
-          </div>
-        )}
+        <button
+          onClick={handleConfirmDeliver}
+          className={`
+            flex-1 
+            py-3.5 px-5
+            bg-gradient-to-r from-green-600 to-green-500 
+            hover:from-green-500 hover:to-green-400 
+            text-white 
+            font-semibold 
+            rounded-xl 
+            transition-all duration-200
+            shadow-lg shadow-green-900/30 
+            hover:shadow-green-800/50
+            active:scale-[0.98]
+          `}
+        >
+          Yes, Deliver Chapter
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
         {showCompleteModal && (
 
@@ -917,12 +1049,15 @@ export default function BookDetails() {
               {/* Total Hours */}
               <div className="mb-4">
                 <label className="text-xs text-gray-400">Total Hours</label>
-                <input
-                  type="text"
-                  value={totalHours}
-                  readOnly
-                  className="w-full bg-gray-700 p-2 rounded text-green-400 font-semibold"
-                />
+              <input
+  type="number"
+  value={totalHours}
+  onChange={(e) => {
+    setManualEdit(true);
+    setTotalHours(e.target.value);
+  }}
+  className="w-full bg-gray-700 p-2 rounded text-green-400 font-semibold"
+/>
               </div>
 
               {/* Buttons */}
@@ -936,7 +1071,10 @@ export default function BookDetails() {
                 </button>
 
                 <button
-                  onClick={() => setShowDeliverModal(false)}
+                  onClick={() => {
+  setShowDeliverModal(false);
+  resetDurationFields();
+}}
                   className="flex-1 bg-gray-600 py-2 rounded hover:bg-gray-700"
                 >
                   CANCEL
@@ -947,6 +1085,123 @@ export default function BookDetails() {
             </div>
           </div>
         )}
+
+        {showRevertModal && (
+  <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div
+      className={`
+        bg-gradient-to-b from-gray-900 to-gray-950
+        border border-gray-700/60
+        rounded-2xl
+        shadow-2xl shadow-black/50
+        w-full max-w-md
+        overflow-hidden
+        transform transition-all duration-200
+      `}
+    >
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4 border-b border-gray-800/70 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+          <svg
+            className="w-6 h-6 text-yellow-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
+          </svg>
+        </div>
+        <h2 className="text-xl font-semibold text-white">
+          Revert Action
+        </h2>
+      </div>
+
+      {/* Body */}
+      <div className="px-6 pt-6 pb-4">
+        <p className="text-gray-300 mb-4 leading-relaxed">
+          Please provide a clear reason for <span className="font-medium text-yellow-300">reverting</span> this action.
+        </p>
+
+        <textarea
+          className={`
+            w-full 
+            min-h-[110px]
+            bg-gray-800/70 
+            border border-gray-600 
+            text-gray-100 
+            placeholder-gray-500
+            rounded-xl
+            px-4 py-3
+            focus:outline-none 
+            focus:border-yellow-500/60 
+            focus:ring-1 
+            focus:ring-yellow-500/30
+            resize-none
+            transition-all duration-150
+          `}
+          value={adminRemark}
+          onChange={(e) => setAdminRemark(e.target.value)}
+         
+          maxLength={500}
+        />
+
+        <p className="mt-2 text-xs text-gray-500 text-right">
+          {adminRemark.length} / 500
+        </p>
+      </div>
+
+      {/* Footer */}
+      <div className="px-6 py-5 bg-black/30 border-t border-gray-800/70 flex gap-3">
+        <button
+          onClick={() => {
+            setShowRevertModal(false);
+            setAdminRemark("");
+            setRevertAssignmentId(null);
+          }}
+          className={`
+            flex-1
+            py-3.5
+            bg-gray-800/90 
+            hover:bg-gray-700/90 
+            text-gray-300 
+            font-medium 
+            rounded-xl 
+            transition-all duration-200
+            border border-gray-700/50
+            active:scale-[0.98]
+          `}
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handleRevert}
+          disabled={!adminRemark.trim()}
+          className={`
+            flex-1
+            py-3.5
+            font-semibold
+            rounded-xl
+            transition-all duration-200
+            active:scale-[0.98]
+            ${
+              adminRemark.trim()
+                ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-white shadow-lg shadow-yellow-900/30 hover:shadow-yellow-800/50'
+                : 'bg-yellow-700/40 text-yellow-300/60 cursor-not-allowed'
+            }
+          `}
+        >
+          Confirm Revert
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       </div>
     </Layout>

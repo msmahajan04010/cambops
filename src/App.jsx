@@ -19,6 +19,7 @@ import TransactionHistory from './components/Login/TransactionMaster/TMList';
 import { Toaster } from "react-hot-toast";
 import ChapterJourney from './components/Login/UserAssignMaster/ChapterJourney';
 import TruncatePage from './components/Login/Truncate/TruncateMain';
+import AssignmentDashboard from './components/Login/Dasboard/UserDashboard';
 
 function App() {
 
@@ -61,6 +62,7 @@ function App() {
 
     <Route path="/TMList" element={<TransactionHistory />} />
       <Route path="/TR" element={<TruncatePage />} />
+      <Route path="/ADB" element={<AssignmentDashboard />} />
 
 
     </Routes>

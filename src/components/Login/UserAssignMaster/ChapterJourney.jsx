@@ -321,17 +321,18 @@ export default function ChapterJourney() {
 
 
     const getIcon = (action) => {
-        switch (action) {
-            case "assigned": return "🗺️";
-            case "accepted": return "⚓";
-            case "completed": return "🏁";
-            case "declined": return "💣";
-            case "approved": return "🛡️";
-            case "delivered": return "💎";
-            case "reverted": return "↩";
-            default: return "📜";
-        }
-    };
+    switch (action) {
+        case "assigned": return "🗺️";
+        case "accepted": return "⚓";
+        case "completed": return "🏁";
+        case "declined": return "💣";
+        case "approved": return "🛡️";
+        case "delivered": return "💎";
+        case "reassigned": return "↩";
+        case "reverted": return "↩";
+        default: return "📜";
+    }
+};
 
     const getCardStyle = (action) => {
         switch (action) {

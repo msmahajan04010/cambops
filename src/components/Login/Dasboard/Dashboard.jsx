@@ -441,7 +441,8 @@ import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../../firebase";
 import Layout from "../Layout/AdminLayout";
-
+import { useNavigate } from "react-router-dom";
+import SimpleDashboard from "./SimpleDashboard";
 /* ---------------- ROLE CONSTANTS ---------------- */
 const ROLE = { ADMIN: 1, SPLITTING: 2, RECORDING: 3, QC: 4, BOTH: 5, CORRECTION: 6, ADMIN1: 0 };
 
@@ -491,14 +492,8 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard" subtitle="View and Check all transactions of the System">
-      {(userTypeId === ROLE.ADMIN || userTypeId === ROLE.ADMIN1 || userTypeId === 100) && (
-        <AdminDashboard users={users} books={books} assignments={assignments} />
-      )}
-      {userTypeId === ROLE.RECORDING && <RecordingDashboard assignments={assignments} />}
-      {userTypeId === ROLE.SPLITTING && <SplittingDashboard assignments={assignments} />}
-      {userTypeId === ROLE.QC && <QCDashboard assignments={assignments} />}
-      {userTypeId === ROLE.BOTH && <CombinedDashboard assignments={assignments} />}
-      {userTypeId === ROLE.CORRECTION && <CorrectionDashboard assignments={assignments} />}
+ 
+   <AdminDashboard users={users} books={books} assignments={assignments} />
     </Layout>
   );
 }
@@ -1163,72 +1158,6 @@ function UserSection({ title, users, color, badge }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ── ROLE-BASED DASHBOARDS ── */
-
-function RecordingDashboard({ assignments }) {
-  const userId = (getCookie("userId"));
-  const tasks = assignments.filter(a => a.recording?.userId === userId && [1, 2].includes(a.recording?.status));
-  return <SimpleDashboard title="Recording Tasks" icon="🎙️" count={tasks.length} color="indigo" />;
-}
-
-function SplittingDashboard({ assignments }) {
-  const userId = (getCookie("userId"));
-  const tasks = assignments.filter(a => a.splitting?.userId === userId && [1, 2].includes(a.splitting?.status));
-  return <SimpleDashboard title="Splitting Tasks" icon="✂️" count={tasks.length} color="amber" />;
-}
-
-function QCDashboard({ assignments }) {
-  const userId = (getCookie("userId"));
-  const tasks = assignments.filter(a => a.qc?.userId === userId && [1, 2].includes(a.qc?.status));
-  return <SimpleDashboard title="QC Pending Tasks" icon="🔍" count={tasks.length} color="emerald" />;
-}
-
-function CorrectionDashboard({ assignments }) {
-  const userId = getCookie("userId");
-
-  const tasks = assignments.filter(
-    a => a.correction?.userId === userId && [1, 2].includes(a.correction?.status)
-  );
-
-  return (
-    <SimpleDashboard
-      title="Correction Tasks"
-      icon="🛠️"
-      count={tasks.length}
-      color="rose"
-    />
-  );
-}
-
-function CombinedDashboard({ assignments }) {
-  const userId = (getCookie("userId"));
-  const recTasks = assignments.filter(a => a.recording?.userId === userId && [1, 2].includes(a.recording?.status)).length;
-  const splitTasks = assignments.filter(a => a.splitting?.userId === userId && [1, 2].includes(a.splitting?.status)).length;
-  return (
-    <div className="space-y-4">
-      <SimpleDashboard title="Recording Tasks" icon="🎙️" count={recTasks} color="indigo" />
-      <SimpleDashboard title="Splitting Tasks" icon="✂️" count={splitTasks} color="amber" />
-    </div>
-  );
-}
-
-function SimpleDashboard({ title, icon, count, color }) {
-  const colors = {
-    indigo: "text-indigo-400 bg-indigo-500/10 border-indigo-500/30",
-    amber: "text-amber-400 bg-amber-500/10 border-amber-500/30",
-    emerald: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
-    rose: "text-rose-400 bg-rose-500/10 border-rose-500/30",
-  };
-  return (
-    <div className={`border rounded-2xl p-8 text-center ${colors[color]}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <div className="text-4xl mb-3">{icon}</div>
-      <p className="text-sm font-medium opacity-70 mb-2">{title}</p>
-      <p className="text-5xl font-bold" style={{ fontFamily: "'DM Mono', monospace" }}>{count}</p>
-      <p className="text-sm opacity-50 mt-2">active tasks</p>
     </div>
   );
 }
