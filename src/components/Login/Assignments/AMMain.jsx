@@ -1022,6 +1022,8 @@ export default function AssignmentsModule() {
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [remarkType, setRemarkType] = useState(null); // decline or reassign
+  const [showBookModal, setShowBookModal] = useState(false);
+const [bookDetails, setBookDetails] = useState(null);
 
   const openRemarkModal = (assignment, type) => {
     setSelectedAssignment(assignment);
@@ -1036,6 +1038,29 @@ export default function AssignmentsModule() {
 
     return recDone && splitDone;
   };
+
+
+  const handleViewBook = async (assignment) => {
+
+  try {
+
+    const snap = await getDocs(collection(db, "books"));
+
+    const books = snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
+
+    const book = books.find(b => b.id === assignment.bookId);
+
+    setBookDetails(book);
+    setShowBookModal(true);
+
+  } catch (error) {
+    console.error(error);
+  }
+
+};
 
 
   let stage = null;
@@ -1312,6 +1337,7 @@ export default function AssignmentsModule() {
             <tr>
               <th className="p-3 text-left">Book</th>
               <th className="p-3 text-left">Chapter</th>
+              <th className="p-3 text-center">Book Details</th>
               <th className="p-3 text-center">Remark</th>
               <th className="p-3 text-center">Status</th>
               <th className="p-3 text-center">Action</th>
@@ -1356,6 +1382,25 @@ export default function AssignmentsModule() {
                   <td className="p-3">{a.bookName}</td>
 
                   <td className="p-3">{a.chapterName}</td>
+
+<td className="p-3 text-center">
+
+  {status === 2 ? (
+
+    <button
+      onClick={() => handleViewBook(a)}
+      className="text-blue-400 hover:text-blue-600 underline text-sm"
+    >
+      View
+    </button>
+
+  ) : (
+
+    <span className="text-gray-500 text-sm">-</span>
+
+  )}
+
+</td>
                   <td className="p-3 text-center">
 
                     {latestRemark ? (
@@ -1457,6 +1502,79 @@ export default function AssignmentsModule() {
         </table>
 
       </div>
+
+      {showBookModal && bookDetails && (
+
+  <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+
+    <div className="bg-gray-800 p-6 rounded-2xl w-[500px] text-white">
+
+      <h2 className="text-xl font-bold mb-4">Book Details</h2>
+
+      <div className="space-y-3 text-sm">
+
+        <p>
+          <span className="text-gray-400">Book Name:</span>{" "}
+          <span className="font-semibold">{bookDetails.bookName}</span>
+        </p>
+
+        <p>
+          <span className="text-gray-400">Book Code:</span>{" "}
+          <span className="font-semibold">{bookDetails.bookCode}</span>
+        </p>
+
+        <p>
+          <span className="text-gray-400">Language:</span>{" "}
+          <span className="font-semibold">{bookDetails.language}</span>
+        </p>
+
+        {bookDetails.bookLink && (
+          <p>
+            <span className="text-gray-400">Reference Link:</span>{" "}
+            <a
+              href={bookDetails.bookLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 underline"
+            >
+              Open Link
+            </a>
+          </p>
+        )}
+
+        {bookDetails.pdfUrl && (
+          <p>
+            <span className="text-gray-400">Download PDF:</span>{" "}
+            <a
+              href={bookDetails.pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-green-400 underline"
+            >
+              Download
+            </a>
+          </p>
+        )}
+
+      </div>
+
+      <div className="flex gap-3 mt-6">
+
+        <button
+          onClick={() => setShowBookModal(false)}
+          className="w-full bg-gray-600 py-2 rounded-lg hover:bg-gray-700 transition"
+        >
+          Close
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+)}
+
       {remarkModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
 
